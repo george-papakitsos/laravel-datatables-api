@@ -1,0 +1,33 @@
+{
+    "name": "gpapakitsos/laravel-datatables-api",
+    "description": "jQuery DataTables API for Laravel",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "George Papakitsos",
+            "email": "papakitsos_george@yahoo.gr",
+            "homepage": "https://papakitsos.gr"
+        }
+    ],
+    "require": {
+        "php": ">=5.6",
+        "illuminate/http": ">=5",
+        "illuminate/support": ">=5"
+    },
+    "require-dev": {
+        "phpunit/phpunit": ">=5.7"
+    },
+    "autoload": {
+        "psr-4": {
+            "GPapakitsos\\LaravelDataTables\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "GPapakitsos\\LaravelDataTables\\Tests\\": "tests/"
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
