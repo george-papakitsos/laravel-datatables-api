@@ -16,7 +16,7 @@ class DatatablesServiceProvider extends ServiceProvider
 		if ($this->app->runningInConsole())
 		{
 			$this->publishes([
-				__DIR__.'/../config/datatables.php' => config_path('datatables.php'),
+				__DIR__.'/config/datatables.php' => config_path('datatables.php'),
 			]);
 		}
 	}
