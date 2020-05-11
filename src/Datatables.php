@@ -235,9 +235,9 @@ class Datatables {
 					if (!isset($this->relations[$field])) // if field exists on model
 					{
 						$table = $this->model->getTable();
-						if (Str::contains($searchValue, '-dateDelimiter-'))
+						if (Str::contains($searchValue, config('datatables.filters.date_delimiter')))
 						{
-							$dates = explode('-dateDelimiter-', $searchValue);
+							$dates = explode(config('datatables.filters.date_delimiter'), $searchValue);
 							if (!empty($dates[0])) $query = $query->whereRaw("DATE(`$table`.`$field`) >= '".Carbon::createFromFormat(config('datatables.filters.date_format'), $dates[0])->toDateString()."'");
 							if (!empty($dates[1])) $query = $query->whereRaw("DATE(`$table`.`$field`) <= '".Carbon::createFromFormat(config('datatables.filters.date_format'), $dates[1])->toDateString()."'");
 						}

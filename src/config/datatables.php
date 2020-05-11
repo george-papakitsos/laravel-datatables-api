@@ -16,6 +16,7 @@ return [
 
 	'filters' => [
 		'date_format' => 'd/m/Y',
+		'date_delimiter' => '-dateDelimiter-',
 	],
 
 ];
