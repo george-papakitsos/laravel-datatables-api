@@ -70,7 +70,7 @@ class Datatables {
 	{
 		$this->options = $request->all();
 
-		$model = config('datatables.model_namespace').$model;
+		$model = config('datatables.models_namespace').$model;
 		$this->model = new $model;
 
 		if (!method_exists($this->model, 'getDatatablesData')) throw new BadMethodCallException('Call to undefined method '.get_class($this->model).'::getDatatablesData()');
