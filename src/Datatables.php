@@ -139,7 +139,7 @@ class Datatables {
 	{
 		foreach ($this->options['extraWhere'] as $field => $value)
 		{
-			(is_array($value))
+			is_array($value)
 				? $this->queryBuilder->whereIn($field, $value)
 				: $this->queryBuilder->where($field, (Str::startsWith($value, '%') || Str::endsWith($value, '%') ? 'LIKE' : '='), $value);
 		}
@@ -252,8 +252,17 @@ class Datatables {
 							$query->where(function ($query) use ($field, $searchValue, $otherTable) {
 								foreach ($this->relations[$field] as $otherField)
 								{
-									if (Str::startsWith($searchValue, '|') && Str::endsWith($searchValue, '|')) $query->orWhere($otherTable.'.'.$otherField, trim($searchValue, '|'));
-									else $query->orWhere($otherTable.'.'.$otherField, 'LIKE', '%'.$searchValue.'%');
+									if (is_string($otherField))
+									{
+										if (Str::startsWith($searchValue, '|') && Str::endsWith($searchValue, '|')) $query->orWhere($otherTable.'.'.$otherField, trim($searchValue, '|'));
+										else $query->orWhere($otherTable.'.'.$otherField, 'LIKE', '%'.$searchValue.'%');
+									}
+									else
+									{
+										$query->whereHas($otherField[0], function ($query) use ($otherField, $searchValue) {
+											$query->where($otherField[1], 'LIKE', '%'.$searchValue.'%');
+										});
+									}
 								}
 							});
 						});
