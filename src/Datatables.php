@@ -238,8 +238,8 @@ class Datatables {
 						if (Str::contains($searchValue, config('datatables.filters.date_delimiter')))
 						{
 							$dates = explode(config('datatables.filters.date_delimiter'), $searchValue);
-							if (!empty($dates[0])) $query = $query->whereRaw("DATE(`$table`.`$field`) >= '".Carbon::createFromFormat(config('datatables.filters.date_format'), $dates[0])->toDateString()."'");
-							if (!empty($dates[1])) $query = $query->whereRaw("DATE(`$table`.`$field`) <= '".Carbon::createFromFormat(config('datatables.filters.date_format'), $dates[1])->toDateString()."'");
+							if (!empty($dates[0])) $query->whereRaw("DATE(`$table`.`$field`) >= '".Carbon::createFromFormat(config('datatables.filters.date_format'), $dates[0])->toDateString()."'");
+							if (!empty($dates[1])) $query->whereRaw("DATE(`$table`.`$field`) <= '".Carbon::createFromFormat(config('datatables.filters.date_format'), $dates[1])->toDateString()."'");
 						}
 						else if (Str::startsWith($searchValue, '|') && Str::endsWith($searchValue, '|')) $query->where($table.'.'.$field, trim($searchValue, '|'));
 						else $query->where($table.'.'.$field, 'LIKE', '%'.$searchValue.'%');
@@ -254,7 +254,13 @@ class Datatables {
 								{
 									if (is_string($otherField))
 									{
-										if (Str::startsWith($searchValue, '|') && Str::endsWith($searchValue, '|')) $query->orWhere($otherTable.'.'.$otherField, trim($searchValue, '|'));
+										if (Str::contains($searchValue, config('datatables.filters.date_delimiter')))
+										{
+											$dates = explode(config('datatables.filters.date_delimiter'), $searchValue);
+											if (!empty($dates[0])) $query->whereRaw("DATE(`$otherTable`.`$otherField`) >= '".Carbon::createFromFormat(config('datatables.filters.date_format'), $dates[0])->toDateString()."'");
+											if (!empty($dates[1])) $query->whereRaw("DATE(`$otherTable`.`$otherField`) <= '".Carbon::createFromFormat(config('datatables.filters.date_format'), $dates[1])->toDateString()."'");
+										}
+										else if (Str::startsWith($searchValue, '|') && Str::endsWith($searchValue, '|')) $query->orWhere($otherTable.'.'.$otherField, trim($searchValue, '|'));
 										else $query->orWhere($otherTable.'.'.$otherField, 'LIKE', '%'.$searchValue.'%');
 									}
 									else
