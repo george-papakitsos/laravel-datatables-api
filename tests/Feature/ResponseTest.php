@@ -69,7 +69,7 @@ class ResponseTest extends FeatureTestCase
 
         $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
         $response->assertStatus(200);
-        $this->assertEquals(1, $response->getData(true)['data'][0]['id']);
+        $this->assertEquals($this->user->id, $response->getData(true)['data'][0]['id']);
     }
 
     public function testSortByBelongsToColumn()
@@ -81,7 +81,19 @@ class ResponseTest extends FeatureTestCase
 
         $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
         $response->assertStatus(200);
-        $this->assertEquals(1, $response->getData(true)['data'][0]['id']);
+        $this->assertEquals($this->user->id, $response->getData(true)['data'][0]['id']);
+    }
+
+    public function testSortByHasManyColumn()
+    {
+        $request_data = $this->getRequestDataSample();
+        $request_data['order'][0]['column'] = 6;
+        $request_data['order'][0]['dir'] = 'desc';
+        $query_string = http_build_query($request_data);
+
+        $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
+        $response->assertStatus(200);
+        $this->assertEquals($this->user->id, $response->getData(true)['data'][0]['id']);
     }
 
     public function testSearch()

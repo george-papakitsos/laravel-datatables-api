@@ -28,6 +28,11 @@ class User extends Model
         return $this->belongsTo(Country::class);
     }
 
+    public function userLogins()
+    {
+        return $this->hasMany(UserLogin::class);
+    }
+
     /**
      * Scopes
      */
@@ -60,6 +65,7 @@ class User extends Model
             'created_at' => $this->created_at->toDateTimeString(),
             'updated_at' => $this->updated_at->toDateTimeString(),
             'country' => $this->country->name ?? null,
+            'userLogins' => $this->userLogins->count(),
         ];
     }
 
@@ -72,6 +78,7 @@ class User extends Model
     {
         return [
             'country' => ['name'],
+            'userLogins' => [],
         ];
     }
 }

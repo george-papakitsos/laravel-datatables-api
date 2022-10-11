@@ -6,10 +6,13 @@ use Orchestra\Testbench\TestCase;
 use GPapakitsos\LaravelDatatables\DatatablesServiceProvider;
 use GPapakitsos\LaravelDatatables\Tests\Models\User as User;
 use GPapakitsos\LaravelDatatables\Tests\Models\Country as Country;
+use GPapakitsos\LaravelDatatables\Tests\Models\UserLogin as UserLogin;
 
 class FeatureTestCase extends TestCase
 {
     public $route_prefix;
+    public $country;
+    public $user;
 
     protected function setUp(): void
     {
@@ -17,14 +20,14 @@ class FeatureTestCase extends TestCase
 
         $this->loadMigrationsFrom(__DIR__.'/database/migrations');
 
-        $country = Country::factory()->create();
-        User::factory()->create([
+        User::factory()->has(UserLogin::factory()->count(rand(1, 5)))->count(49)->create();
+        $this->country = Country::factory()->create();
+        $this->user = User::factory()->has(UserLogin::factory()->count(rand(10, 20)))->create([
             'name' => 'George Papakitsos',
             'email' => 'papakitsos_george@yahoo.gr',
-            'country_id' => $country->id,
+            'country_id' => $this->country->id,
             'created_at' => '1981-04-23 10:00:00',
         ]);
-        User::factory()->count(49)->create();
     }
 
     protected function getPackageProviders($app)
@@ -101,6 +104,12 @@ class FeatureTestCase extends TestCase
                         'value' => '',
                     ],
                 ],
+                [
+                    'data' => 'userLogins',
+                    'search' => [
+                        'value' => '',
+                    ],
+                ],
             ],
             'start' => 0,
             'length' => 20,
@@ -113,7 +122,7 @@ class FeatureTestCase extends TestCase
                     'dir' => 'asc',
                 ]
             ],
-            'column_names' => ['id', 'name', 'email', 'created_at', 'updated_at', 'country'],
+            'column_names' => ['id', 'name', 'email', 'created_at', 'updated_at', 'country', 'userLogins'],
         ];
     }
 }
