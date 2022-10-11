@@ -2,21 +2,21 @@
 
 return [
 
-	'models_namespace' => 'App\\Models\\',
+    'models_namespace' => 'App\\Models\\',
 
-	'routes' => [
-		'prefix' => 'datatable',
-		'name' => 'datatable',
-	],
+    'routes' => [
+        'prefix' => 'datatable',
+        'name' => 'datatable',
+    ],
 
-	'middleware' => [
-		'web',
-		// 'auth',
-	],
+    'middleware' => [
+        'web',
+        // 'auth',
+    ],
 
-	'filters' => [
-		'date_format' => 'd/m/Y',
-		'date_delimiter' => '-dateDelimiter-',
-	],
+    'filters' => [
+        'date_format' => 'd/m/Y',
+        'date_delimiter' => '-dateDelimiter-',
+    ],
 
 ];

@@ -14,7 +14,7 @@ use GPapakitsos\LaravelDatatables\Tests\Models\User as User;
 |
 */
 
-$user = new User;
+$user = new User();
 $user->name = 'George Papakitsos';
 $user->email = 'papakitsos_george@yahoo.gr';
 $user->password = '$2y$10$TKh8H1.PfQx37YgCzwiKb.KjNyWgaHb9cbcoQgdIVFlYg7B77UdFm';
@@ -23,11 +23,11 @@ $user->updated_at = now();
 $user->save();
 
 $factory->define(User::class, function (Faker $faker) {
-	return [
-		'name' => $faker->name,
-		'email' => $faker->unique()->safeEmail,
-		'password' => '$2y$10$TKh8H1.PfQx37YgCzwiKb.KjNyWgaHb9cbcoQgdIVFlYg7B77UdFm',
-		'created_at' => now(),
-		'updated_at' => now(),
-	];
+    return [
+        'name' => $faker->name,
+        'email' => $faker->unique()->safeEmail,
+        'password' => '$2y$10$TKh8H1.PfQx37YgCzwiKb.KjNyWgaHb9cbcoQgdIVFlYg7B77UdFm',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ];
 });

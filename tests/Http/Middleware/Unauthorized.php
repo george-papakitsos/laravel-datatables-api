@@ -15,8 +15,10 @@ class Unauthorized
      */
     public function handle($request, Closure $next)
     {
-		if ($request->user() === null) return abort(401);
+        if ($request->user() === null) {
+            return abort(401);
+        }
 
-		return $next($request);
+        return $next($request);
     }
 }

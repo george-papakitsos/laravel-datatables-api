@@ -7,20 +7,19 @@ use Illuminate\Routing\Controller;
 
 use GPapakitsos\LaravelDatatables\Datatables;
 
-class DatatablesController extends Controller {
+class DatatablesController extends Controller
+{
+    protected $request;
 
-	protected $request;
+    public function __construct(Request $request)
+    {
+        $this->request = $request;
+    }
 
-	public function __construct(Request $request)
-	{
-		$this->request = $request;
-	}
+    public function getData($model)
+    {
+        $Datatable = new Datatables($this->request, $model);
 
-	public function getData($model)
-	{
-		$Datatable = new Datatables($this->request, $model);
-
-		return $Datatable->response();
-	}
-
+        return $Datatable->response();
+    }
 }
