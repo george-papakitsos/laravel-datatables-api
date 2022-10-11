@@ -28,7 +28,8 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "GPapakitsos\\LaravelDatatables\\Tests\\": "tests/"
+            "GPapakitsos\\LaravelDatatables\\Tests\\": "tests/",
+            "Database\\Factories\\": "tests/database/factories/"
         }
     },
     "extra": {

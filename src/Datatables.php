@@ -11,6 +11,7 @@ namespace GPapakitsos\LaravelDatatables;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use BadMethodCallException;
 
@@ -148,7 +149,7 @@ class Datatables
         foreach ($this->options['extraWhere'] as $field => $value) {
             is_array($value)
                 ? $this->queryBuilder->whereIn($field, $value)
-                : $this->queryBuilder->where($field, Str::startsWith($value, '%') || Str::endsWith($value, '%' ? 'LIKE' : '='), $value);
+                : $this->queryBuilder->where($field, (Str::startsWith($value, '%') || Str::endsWith($value, '%') ? 'LIKE' : '='), $value);
         }
     }
 
@@ -160,9 +161,10 @@ class Datatables
     private function sortByColumn()
     {
         $field = $this->options['column_names'][$this->options['order'][0]['column']];
+        $direction = $this->options['order'][0]['dir'];
 
         if (!isset($this->relations[$field])) {
-            $this->queryBuilder->orderBy($field, $this->options['order'][0]['dir']);
+            $this->queryBuilder->orderBy($field, $direction);
         } // if field exists on model
         else { // if field is relation of model
             $relation = $this->model->$field();
@@ -175,14 +177,14 @@ class Datatables
                     ->select($table.'.*');
                 foreach ($this->relations[$field] as $otherField) {
                     if (is_string($otherField)) {
-                        $this->queryBuilder->orderBy($otherTable.'.'.$otherField, $this->options['order'][0]['dir']);
+                        $this->queryBuilder->orderBy($otherTable.'.'.$otherField, $direction);
                     } else {
                         $relationThrough = $relation->getRelated()->{$otherField[0]}();
                         $relationThroughOtherTable = $relationThrough->getRelated()->getTable();
 
                         $this->queryBuilder
                             ->leftJoin($relationThroughOtherTable, $relationThrough->getQualifiedForeignKeyName(), '=', $relationThrough->getQualifiedOwnerKeyName())
-                            ->orderBy($relationThroughOtherTable.'.'.$otherField[1], $this->options['order'][0]['dir']);
+                            ->orderBy($relationThroughOtherTable.'.'.$otherField[1], $direction);
                     }
                 }
             } elseif ($relation instanceof \Illuminate\Database\Eloquent\Relations\BelongsToMany) {
@@ -192,8 +194,10 @@ class Datatables
                     ->select($table.'.*')
                     ->distinct();
                 foreach ($this->relations[$field] as $otherField) {
-                    $this->queryBuilder->orderBy($otherTable.'.'.$otherField, $this->options['order'][0]['dir']);
+                    $this->queryBuilder->orderBy($otherTable.'.'.$otherField, $direction);
                 }
+            } elseif ($relation instanceof \Illuminate\Database\Eloquent\Relations\HasMany) {
+                $this->queryBuilder->orderBy(DB::raw('(SELECT COUNT(*) FROM '.$otherTable.' WHERE '.$relation->getQualifiedForeignKeyName().' = '.$relation->getQualifiedParentKeyName().')'), $direction);
             }
         }
     }

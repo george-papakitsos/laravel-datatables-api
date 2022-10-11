@@ -15,9 +15,13 @@ class FeatureTestCase extends TestCase
         parent::setUp();
 
         $this->loadMigrationsFrom(__DIR__.'/database/migrations');
-        $this->withFactories(__DIR__.'/database/factories');
 
-        factory(User::class, 50)->create();
+        User::factory()->create([
+            'name' => 'George Papakitsos',
+            'email' => 'papakitsos_george@yahoo.gr',
+            'created_at' => '1981-04-23 10:00:00',
+        ]);
+        User::factory()->count(49)->create();
     }
 
     protected function getPackageProviders($app)
