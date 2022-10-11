@@ -72,6 +72,18 @@ class ResponseTest extends FeatureTestCase
         $this->assertEquals(1, $response->getData(true)['data'][0]['id']);
     }
 
+    public function testSortByBelongsToColumn()
+    {
+        $request_data = $this->getRequestDataSample();
+        $request_data['order'][0]['column'] = 5;
+        $request_data['order'][0]['dir'] = 'desc';
+        $query_string = http_build_query($request_data);
+
+        $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
+        $response->assertStatus(200);
+        $this->assertEquals(1, $response->getData(true)['data'][0]['id']);
+    }
+
     public function testSearch()
     {
         $request_data = $this->getRequestDataSample();

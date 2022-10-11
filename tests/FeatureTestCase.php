@@ -5,6 +5,7 @@ namespace GPapakitsos\LaravelDatatables\Tests;
 use Orchestra\Testbench\TestCase;
 use GPapakitsos\LaravelDatatables\DatatablesServiceProvider;
 use GPapakitsos\LaravelDatatables\Tests\Models\User as User;
+use GPapakitsos\LaravelDatatables\Tests\Models\Country as Country;
 
 class FeatureTestCase extends TestCase
 {
@@ -16,9 +17,11 @@ class FeatureTestCase extends TestCase
 
         $this->loadMigrationsFrom(__DIR__.'/database/migrations');
 
+        $country = Country::factory()->create();
         User::factory()->create([
             'name' => 'George Papakitsos',
             'email' => 'papakitsos_george@yahoo.gr',
+            'country_id' => $country->id,
             'created_at' => '1981-04-23 10:00:00',
         ]);
         User::factory()->count(49)->create();
@@ -92,6 +95,12 @@ class FeatureTestCase extends TestCase
                         'value' => '',
                     ],
                 ],
+                [
+                    'data' => 'country',
+                    'search' => [
+                        'value' => '',
+                    ],
+                ],
             ],
             'start' => 0,
             'length' => 20,
@@ -104,7 +113,7 @@ class FeatureTestCase extends TestCase
                     'dir' => 'asc',
                 ]
             ],
-            'column_names' => ['id', 'name', 'email', 'created_at', 'updated_at'],
+            'column_names' => ['id', 'name', 'email', 'created_at', 'updated_at', 'country'],
         ];
     }
 }

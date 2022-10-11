@@ -21,6 +21,14 @@ class User extends Model
     }
 
     /**
+     * Relationships
+     */
+    public function country()
+    {
+        return $this->belongsTo(Country::class);
+    }
+
+    /**
      * Scopes
      */
     public function scopeSearch($query, $term)
@@ -51,6 +59,19 @@ class User extends Model
             'email' => $this->email,
             'created_at' => $this->created_at->toDateTimeString(),
             'updated_at' => $this->updated_at->toDateTimeString(),
+            'country' => $this->country->name ?? null,
+        ];
+    }
+
+    /**
+     * Datatable related fields for correct sorting & column searching
+     *
+     * @return array
+     */
+    public function getRelationFields()
+    {
+        return [
+            'country' => ['name'],
         ];
     }
 }
