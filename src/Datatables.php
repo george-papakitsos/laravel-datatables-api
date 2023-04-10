@@ -12,6 +12,7 @@ namespace GPapakitsos\LaravelDatatables;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Carbon\Carbon;
 use BadMethodCallException;
 
@@ -238,6 +239,7 @@ class Datatables
      */
     private function searchByColumn()
     {
+        $table = $this->model->getTable();
         $result = false;
 
         foreach ($this->options['columns'] as $i => $col) {
@@ -246,9 +248,9 @@ class Datatables
                 $result = true;
 
                 $field = $this->options['column_names'][$i];
-                $this->queryBuilder->where(function ($query) use ($field, $searchValue) {
+                $this->queryBuilder->where(function ($query) use ($table, $field, $searchValue) {
                     if (!isset($this->relations[$field])) { // if field exists on model
-                        $table = $this->model->getTable();
+                        $columnType = Schema::getColumnType($table, $field);
                         if (Str::contains($searchValue, config('datatables.filters.date_delimiter'))) {
                             $dates = explode(config('datatables.filters.date_delimiter'), $searchValue);
                             if (!empty($dates[0])) {
@@ -259,6 +261,8 @@ class Datatables
                             }
                         } elseif (Str::startsWith($searchValue, '|') && Str::endsWith($searchValue, '|')) {
                             $query->where($table.'.'.$field, trim($searchValue, '|'));
+                        } elseif ($columnType == 'json') {
+							$query->whereRaw('LOWER('.$table.'.'.$field.'->"$.*") LIKE ?', ['%'.strtolower($searchValue).'%']);
                         } else {
                             $query->where($table.'.'.$field, 'LIKE', '%'.$searchValue.'%');
                         }

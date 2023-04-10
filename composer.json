@@ -19,7 +19,8 @@
         "nesbot/carbon": "*"
     },
     "require-dev": {
-        "orchestra/testbench": ">=3.5"
+        "orchestra/testbench": ">=3.5",
+        "doctrine/dbal": "^3.6"
     },
     "autoload": {
         "psr-4": {

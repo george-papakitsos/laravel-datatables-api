@@ -19,6 +19,7 @@ class CreateUsersTable extends Migration
             $table->string('email')->unique();
             $table->string('password');
             $table->unsignedBigInteger('country_id')->nullable();
+            $table->json('settings')->nullable();
             $table->timestamps();
 
             $table->foreign('country_id')->references('id')->on('countries');

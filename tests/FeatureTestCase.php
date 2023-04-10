@@ -26,6 +26,7 @@ class FeatureTestCase extends TestCase
             'name' => 'George Papakitsos',
             'email' => 'papakitsos_george@yahoo.gr',
             'country_id' => $this->country->id,
+            'settings' => '{ "is_admin": true, "nickname": "papaki" }',
             'created_at' => '1981-04-23 10:00:00',
         ]);
     }
@@ -110,6 +111,12 @@ class FeatureTestCase extends TestCase
                         'value' => '',
                     ],
                 ],
+                [
+                    'data' => 'settings',
+                    'search' => [
+                        'value' => '',
+                    ],
+                ],
             ],
             'start' => 0,
             'length' => 20,
@@ -122,7 +129,7 @@ class FeatureTestCase extends TestCase
                     'dir' => 'asc',
                 ]
             ],
-            'column_names' => ['id', 'name', 'email', 'created_at', 'updated_at', 'country', 'userLogins'],
+            'column_names' => ['id', 'name', 'email', 'created_at', 'updated_at', 'country', 'userLogins', 'settings'],
         ];
     }
 }

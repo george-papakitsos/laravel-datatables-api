@@ -66,6 +66,7 @@ class User extends Model
             'updated_at' => $this->updated_at->toDateTimeString(),
             'country' => $this->country->name ?? null,
             'userLogins' => $this->userLogins->count(),
+            'settings' => $this->settings,
         ];
     }
 
