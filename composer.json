@@ -16,11 +16,11 @@
         "illuminate/http": ">=5.5",
         "illuminate/routing": ">=5.5",
         "illuminate/support": ">=5.5",
-        "nesbot/carbon": "*"
+        "nesbot/carbon": "*",
+        "doctrine/dbal": "^3.6"
     },
     "require-dev": {
-        "orchestra/testbench": ">=3.5",
-        "doctrine/dbal": "^3.6"
+        "orchestra/testbench": ">=3.5"
     },
     "autoload": {
         "psr-4": {
