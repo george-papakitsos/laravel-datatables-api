@@ -262,7 +262,7 @@ class Datatables
                         } elseif (Str::startsWith($searchValue, '|') && Str::endsWith($searchValue, '|')) {
                             $query->where($table.'.'.$field, trim($searchValue, '|'));
                         } elseif ($columnType == 'json') {
-							$query->whereRaw('LOWER('.$table.'.'.$field.'->"$.*") LIKE ?', ['%'.strtolower($searchValue).'%']);
+                            $query->whereRaw('LOWER(JSON_EXTRACT('.$table.'.'.$field.', "$.*")) LIKE ?', ['%'.strtolower($searchValue).'%']);
                         } else {
                             $query->where($table.'.'.$field, 'LIKE', '%'.$searchValue.'%');
                         }
