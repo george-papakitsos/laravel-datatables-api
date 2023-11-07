@@ -2,9 +2,9 @@
 
 namespace GPapakitsos\LaravelDatatables\Tests\Models;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Database\Factories\UserFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class User extends Model
 {
@@ -31,6 +31,11 @@ class User extends Model
     public function userLogins()
     {
         return $this->hasMany(UserLogin::class);
+    }
+
+    public function userNameAndEmail()
+    {
+        return $this->hasOne(User::class, 'id', 'id');
     }
 
     /**
@@ -67,6 +72,7 @@ class User extends Model
             'country' => $this->country->name ?? null,
             'userLogins' => $this->userLogins->count(),
             'settings' => $this->settings,
+            'userNameAndEmail' => $this->name.' '.$this->email,
         ];
     }
 
@@ -80,6 +86,7 @@ class User extends Model
         return [
             'country' => ['name'],
             'userLogins' => [],
+            'userNameAndEmail' => ['name', 'email'],
         ];
     }
 }

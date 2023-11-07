@@ -3,6 +3,7 @@
 namespace GPapakitsos\LaravelDatatables\Tests\Feature;
 
 use GPapakitsos\LaravelDatatables\Tests\FeatureTestCase;
+use GPapakitsos\LaravelDatatables\Tests\Models\User as User;
 
 class ResponseTest extends FeatureTestCase
 {
@@ -96,6 +97,18 @@ class ResponseTest extends FeatureTestCase
         $this->assertEquals($this->user->id, $response->getData(true)['data'][0]['id']);
     }
 
+    public function testSortByHasOneColumn()
+    {
+        $request_data = $this->getRequestDataSample();
+        $request_data['order'][0]['column'] = 8;
+        $request_data['order'][0]['dir'] = 'asc';
+        $query_string = http_build_query($request_data);
+
+        $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
+        $response->assertStatus(200);
+        $this->assertEquals(User::orderBy('name')->orderBy('email')->first()->id, $response->getData(true)['data'][0]['id']);
+    }
+
     public function testSearch()
     {
         $request_data = $this->getRequestDataSample();
@@ -149,5 +162,18 @@ class ResponseTest extends FeatureTestCase
         $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
         $response->assertStatus(200);
         $this->assertEquals($this->user->id, $response->getData(true)['data'][0]['id']);
+    }
+
+    public function testSearchByHasOneColumn()
+    {
+        foreach (['Papakitsos', 'papakitsos_george@yahoo.gr'] as $searchTerm) {
+            $request_data = $this->getRequestDataSample();
+            $request_data['columns'][8]['search']['value'] = $searchTerm;
+            $query_string = http_build_query($request_data);
+
+            $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
+            $response->assertStatus(200);
+            $this->assertEquals($this->user->id, $response->getData(true)['data'][0]['id']);
+        }
     }
 }

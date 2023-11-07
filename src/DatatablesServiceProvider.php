@@ -2,8 +2,8 @@
 
 namespace GPapakitsos\LaravelDatatables;
 
-use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\ServiceProvider;
 
 class DatatablesServiceProvider extends ServiceProvider
 {

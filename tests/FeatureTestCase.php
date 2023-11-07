@@ -2,11 +2,11 @@
 
 namespace GPapakitsos\LaravelDatatables\Tests;
 
-use Orchestra\Testbench\TestCase;
 use GPapakitsos\LaravelDatatables\DatatablesServiceProvider;
-use GPapakitsos\LaravelDatatables\Tests\Models\User as User;
 use GPapakitsos\LaravelDatatables\Tests\Models\Country as Country;
+use GPapakitsos\LaravelDatatables\Tests\Models\User as User;
 use GPapakitsos\LaravelDatatables\Tests\Models\UserLogin as UserLogin;
+use Orchestra\Testbench\TestCase;
 
 class FeatureTestCase extends TestCase
 {
@@ -117,6 +117,12 @@ class FeatureTestCase extends TestCase
                         'value' => '',
                     ],
                 ],
+                [
+                    'data' => 'userNameAndEmail',
+                    'search' => [
+                        'value' => '',
+                    ],
+                ],
             ],
             'start' => 0,
             'length' => 20,
@@ -127,9 +133,9 @@ class FeatureTestCase extends TestCase
                 [
                     'column' => 1,
                     'dir' => 'asc',
-                ]
+                ],
             ],
-            'column_names' => ['id', 'name', 'email', 'created_at', 'updated_at', 'country', 'userLogins', 'settings'],
+            'column_names' => ['id', 'name', 'email', 'created_at', 'updated_at', 'country', 'userLogins', 'settings', 'userNameAndEmail'],
         ];
     }
 }

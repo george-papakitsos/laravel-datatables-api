@@ -2,8 +2,8 @@
 
 namespace Database\Factories;
 
-use Illuminate\Database\Eloquent\Factories\Factory;
 use GPapakitsos\LaravelDatatables\Tests\Models\UserLogin;
+use Illuminate\Database\Eloquent\Factories\Factory;
 
 class UserLoginFactory extends Factory
 {

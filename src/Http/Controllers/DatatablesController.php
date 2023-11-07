@@ -2,10 +2,9 @@
 
 namespace GPapakitsos\LaravelDatatables\Http\Controllers;
 
+use GPapakitsos\LaravelDatatables\Datatables;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-
-use GPapakitsos\LaravelDatatables\Datatables;
 
 class DatatablesController extends Controller
 {

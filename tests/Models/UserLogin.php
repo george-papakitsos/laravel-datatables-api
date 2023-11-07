@@ -2,9 +2,9 @@
 
 namespace GPapakitsos\LaravelDatatables\Tests\Models;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Database\Factories\UserLoginFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class UserLogin extends Model
 {

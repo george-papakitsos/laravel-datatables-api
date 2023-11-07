@@ -9,12 +9,12 @@
 
 namespace GPapakitsos\LaravelDatatables;
 
+use BadMethodCallException;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Carbon\Carbon;
-use BadMethodCallException;
+use Illuminate\Support\Str;
 
 class Datatables
 {
@@ -63,8 +63,7 @@ class Datatables
     /**
      * The constructor
      *
-     * @param \Illuminate\Http\Request $request
-     * @param string $model
+     * @param  string  $model
      *
      * @throws BadMethodCallException
      */
@@ -75,7 +74,7 @@ class Datatables
         $model = config('datatables.models_namespace').$model;
         $this->model = new $model();
 
-        if (!method_exists($this->model, 'getDatatablesData')) {
+        if (! method_exists($this->model, 'getDatatablesData')) {
             throw new BadMethodCallException('Call to undefined method '.get_class($this->model).'::getDatatablesData()');
         }
 
@@ -91,11 +90,11 @@ class Datatables
      */
     public function response()
     {
-        if (!empty($this->options['scope'])) {
+        if (! empty($this->options['scope'])) {
             $this->applyScope();
         }
 
-        if (!empty($this->options['extraWhere'])) {
+        if (! empty($this->options['extraWhere'])) {
             $this->applyExtraWhere();
         }
 
@@ -103,7 +102,7 @@ class Datatables
             $this->queryBuilder->eagerLoading();
         }
 
-        if (isset($this->options['order']) && (!empty($this->options['order'][0]['column']) || $this->options['order'][0]['column'] === '0')) {
+        if (isset($this->options['order']) && (! empty($this->options['order'][0]['column']) || $this->options['order'][0]['column'] === '0')) {
             $this->sortByColumn();
         }
 
@@ -164,10 +163,9 @@ class Datatables
         $field = $this->options['column_names'][$this->options['order'][0]['column']];
         $direction = $this->options['order'][0]['dir'];
 
-        if (!isset($this->relations[$field])) { // if field exists on model
+        if (! isset($this->relations[$field])) { // if field exists on model
             $this->queryBuilder->orderBy($field, $direction);
-        }
-        else { // if field is relation of model
+        } else { // if field is relation of model
             $relation = $this->model->$field();
             $table = $this->model->getTable();
             $otherTable = $relation->getRelated()->getTable();
@@ -199,6 +197,10 @@ class Datatables
                 }
             } elseif ($relation instanceof \Illuminate\Database\Eloquent\Relations\HasMany) {
                 $this->queryBuilder->orderBy(DB::raw('(SELECT COUNT(*) FROM '.$otherTable.' WHERE '.$relation->getQualifiedForeignKeyName().' = '.$relation->getQualifiedParentKeyName().')'), $direction);
+            } elseif ($relation instanceof \Illuminate\Database\Eloquent\Relations\HasOne) {
+                foreach ($this->relations[$field] as $otherField) {
+                    $this->queryBuilder->orderBy($otherTable.'.'.$otherField, $direction);
+                }
             }
         }
     }
@@ -214,7 +216,7 @@ class Datatables
             return false;
         }
 
-        if (!method_exists($this->model, 'scopeSearch')) {
+        if (! method_exists($this->model, 'scopeSearch')) {
             throw new BadMethodCallException('Call to undefined method '.get_class($this->model).'::scopeSearch()');
         }
 
@@ -222,7 +224,7 @@ class Datatables
 
         foreach ($terms as $term) {
             $term = trim($term);
-            if (!empty($term)) {
+            if (! empty($term)) {
                 $this->queryBuilder->where(function ($query) use ($term) {
                     $query->search($term);
                 });
@@ -244,19 +246,19 @@ class Datatables
 
         foreach ($this->options['columns'] as $i => $col) {
             $searchValue = $col['search']['value'];
-            if (!empty($searchValue) || $searchValue === '0') {
+            if (! empty($searchValue) || $searchValue === '0') {
                 $result = true;
 
                 $field = $this->options['column_names'][$i];
                 $this->queryBuilder->where(function ($query) use ($table, $field, $searchValue) {
-                    if (!isset($this->relations[$field])) { // if field exists on model
+                    if (! isset($this->relations[$field])) { // if field exists on model
                         $columnType = Schema::getColumnType($table, $field);
                         if (Str::contains($searchValue, config('datatables.filters.date_delimiter'))) {
                             $dates = explode(config('datatables.filters.date_delimiter'), $searchValue);
-                            if (!empty($dates[0])) {
+                            if (! empty($dates[0])) {
                                 $query->whereRaw("DATE(`$table`.`$field`) >= '".Carbon::createFromFormat(config('datatables.filters.date_format'), $dates[0])->toDateString()."'");
                             }
-                            if (!empty($dates[1])) {
+                            if (! empty($dates[1])) {
                                 $query->whereRaw("DATE(`$table`.`$field`) <= '".Carbon::createFromFormat(config('datatables.filters.date_format'), $dates[1])->toDateString()."'");
                             }
                         } elseif (Str::startsWith($searchValue, '|') && Str::endsWith($searchValue, '|')) {
@@ -276,10 +278,10 @@ class Datatables
                                         if (is_string($otherField)) {
                                             if (Str::contains($searchValue, config('datatables.filters.date_delimiter'))) {
                                                 $dates = explode(config('datatables.filters.date_delimiter'), $searchValue);
-                                                if (!empty($dates[0])) {
+                                                if (! empty($dates[0])) {
                                                     $query->whereRaw("DATE(`$otherTable`.`$otherField`) >= '".Carbon::createFromFormat(config('datatables.filters.date_format'), $dates[0])->toDateString()."'");
                                                 }
-                                                if (!empty($dates[1])) {
+                                                if (! empty($dates[1])) {
                                                     $query->whereRaw("DATE(`$otherTable`.`$otherField`) <= '".Carbon::createFromFormat(config('datatables.filters.date_format'), $dates[1])->toDateString()."'");
                                                 }
                                             } elseif (Str::startsWith($searchValue, '|') && Str::endsWith($searchValue, '|')) {
