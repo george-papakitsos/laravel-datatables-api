@@ -196,7 +196,7 @@ class Datatables
                     $this->queryBuilder->orderBy($otherTable.'.'.$otherField, $direction);
                 }
             } elseif ($relation instanceof \Illuminate\Database\Eloquent\Relations\HasMany) {
-                $this->queryBuilder->orderBy(DB::raw('(SELECT COUNT(*) FROM '.$otherTable.' WHERE '.$relation->getQualifiedForeignKeyName().' = '.$relation->getQualifiedParentKeyName().')'), $direction);
+                $this->queryBuilder->orderBy(DB::raw('(SELECT COUNT(*) FROM `'.$otherTable.'` WHERE '.$relation->getQualifiedForeignKeyName().' = '.$relation->getQualifiedParentKeyName().')'), $direction);
             } elseif ($relation instanceof \Illuminate\Database\Eloquent\Relations\HasOne) {
                 foreach ($this->relations[$field] as $otherField) {
                     $this->queryBuilder->orderBy($otherTable.'.'.$otherField, $direction);
@@ -220,7 +220,7 @@ class Datatables
             throw new BadMethodCallException('Call to undefined method '.get_class($this->model).'::scopeSearch()');
         }
 
-        $terms = explode(' ', $this->options['search']['value']);
+        $terms = explode(' ', trim($this->options['search']['value']));
 
         foreach ($terms as $term) {
             $term = trim($term);
@@ -291,7 +291,15 @@ class Datatables
                                             }
                                         } else {
                                             $query->whereHas($otherField[0], function ($query) use ($otherField, $searchValue) {
-                                                $query->where($otherField[1], 'LIKE', '%'.$searchValue.'%');
+                                                if (is_string($otherField[1])) {
+                                                    $query->where($otherField[1], 'LIKE', '%'.$searchValue.'%');
+                                                } elseif (is_array($otherField[1])) {
+                                                    $query->where(function ($query) use ($otherField, $searchValue) {
+                                                        foreach ($otherField[1] as $otherFieldItem) {
+                                                            $query->orWhere($otherFieldItem, 'LIKE', '%'.$searchValue.'%');
+                                                        }
+                                                    });
+                                                }
                                             });
                                         }
                                     }
@@ -323,7 +331,9 @@ class Datatables
      */
     private function getFormatedData()
     {
-        $collection = $this->options['length'] != '-1' ? $this->queryBuilder->skip($this->options['start'])->take($this->options['length'])->get() : $this->queryBuilder->get();
+        $collection = $this->options['length'] != '-1'
+            ? $this->queryBuilder->skip($this->options['start'])->take($this->options['length'])->get()
+            : $this->queryBuilder->get();
 
         return [
             'draw' => $this->options['draw'],
