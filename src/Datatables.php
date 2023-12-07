@@ -261,6 +261,8 @@ class Datatables
                             if (! empty($dates[1])) {
                                 $query->whereRaw("DATE(`$table`.`$field`) <= '".Carbon::createFromFormat(config('datatables.filters.date_format'), $dates[1])->toDateString()."'");
                             }
+                        } elseif (Str::contains($searchValue, config('datatables.filters.null_delimiter'))) {
+                            $query->where($table.'.'.$field, '')->orWhereNull($table.'.'.$field);
                         } elseif (Str::startsWith($searchValue, '|') && Str::endsWith($searchValue, '|')) {
                             $query->where($table.'.'.$field, trim($searchValue, '|'));
                         } elseif ($columnType == 'json') {
@@ -272,39 +274,43 @@ class Datatables
                         $relation = $this->model->$field();
                         $otherTable = $relation->getRelated()->getTable();
                         if (! $relation instanceof \Illuminate\Database\Eloquent\Relations\MorphTo) {
-                            $query->whereHas($field, function ($query) use ($field, $searchValue, $otherTable) {
-                                $query->where(function ($query) use ($field, $searchValue, $otherTable) {
-                                    foreach ($this->relations[$field] as $otherField) {
-                                        if (is_string($otherField)) {
-                                            if (Str::contains($searchValue, config('datatables.filters.date_delimiter'))) {
-                                                $dates = explode(config('datatables.filters.date_delimiter'), $searchValue);
-                                                if (! empty($dates[0])) {
-                                                    $query->whereRaw("DATE(`$otherTable`.`$otherField`) >= '".Carbon::createFromFormat(config('datatables.filters.date_format'), $dates[0])->toDateString()."'");
+                            if (Str::contains($searchValue, config('datatables.filters.null_delimiter'))) {
+                                $query->whereDoesntHave($field);
+                            } else {
+                                $query->whereHas($field, function ($query) use ($field, $searchValue, $otherTable) {
+                                    $query->where(function ($query) use ($field, $searchValue, $otherTable) {
+                                        foreach ($this->relations[$field] as $otherField) {
+                                            if (is_string($otherField)) {
+                                                if (Str::contains($searchValue, config('datatables.filters.date_delimiter'))) {
+                                                    $dates = explode(config('datatables.filters.date_delimiter'), $searchValue);
+                                                    if (! empty($dates[0])) {
+                                                        $query->whereRaw("DATE(`$otherTable`.`$otherField`) >= '".Carbon::createFromFormat(config('datatables.filters.date_format'), $dates[0])->toDateString()."'");
+                                                    }
+                                                    if (! empty($dates[1])) {
+                                                        $query->whereRaw("DATE(`$otherTable`.`$otherField`) <= '".Carbon::createFromFormat(config('datatables.filters.date_format'), $dates[1])->toDateString()."'");
+                                                    }
+                                                } elseif (Str::startsWith($searchValue, '|') && Str::endsWith($searchValue, '|')) {
+                                                    $query->orWhere($otherTable.'.'.$otherField, trim($searchValue, '|'));
+                                                } else {
+                                                    $query->orWhere($otherTable.'.'.$otherField, 'LIKE', '%'.$searchValue.'%');
                                                 }
-                                                if (! empty($dates[1])) {
-                                                    $query->whereRaw("DATE(`$otherTable`.`$otherField`) <= '".Carbon::createFromFormat(config('datatables.filters.date_format'), $dates[1])->toDateString()."'");
-                                                }
-                                            } elseif (Str::startsWith($searchValue, '|') && Str::endsWith($searchValue, '|')) {
-                                                $query->orWhere($otherTable.'.'.$otherField, trim($searchValue, '|'));
                                             } else {
-                                                $query->orWhere($otherTable.'.'.$otherField, 'LIKE', '%'.$searchValue.'%');
+                                                $query->whereHas($otherField[0], function ($query) use ($otherField, $searchValue) {
+                                                    if (is_string($otherField[1])) {
+                                                        $query->where($otherField[1], 'LIKE', '%'.$searchValue.'%');
+                                                    } elseif (is_array($otherField[1])) {
+                                                        $query->where(function ($query) use ($otherField, $searchValue) {
+                                                            foreach ($otherField[1] as $otherFieldItem) {
+                                                                $query->orWhere($otherFieldItem, 'LIKE', '%'.$searchValue.'%');
+                                                            }
+                                                        });
+                                                    }
+                                                });
                                             }
-                                        } else {
-                                            $query->whereHas($otherField[0], function ($query) use ($otherField, $searchValue) {
-                                                if (is_string($otherField[1])) {
-                                                    $query->where($otherField[1], 'LIKE', '%'.$searchValue.'%');
-                                                } elseif (is_array($otherField[1])) {
-                                                    $query->where(function ($query) use ($otherField, $searchValue) {
-                                                        foreach ($otherField[1] as $otherFieldItem) {
-                                                            $query->orWhere($otherFieldItem, 'LIKE', '%'.$searchValue.'%');
-                                                        }
-                                                    });
-                                                }
-                                            });
                                         }
-                                    }
+                                    });
                                 });
-                            });
+                            }
                         } else {
                             $query->where(function ($query) use ($field, $searchValue) {
                                 foreach ($this->relations[$field] as $otherField) {
