@@ -176,4 +176,26 @@ class ResponseTest extends FeatureTestCase
             $this->assertEquals($this->user->id, $response->getData(true)['data'][0]['id']);
         }
     }
+
+    public function testSearchByColumnNull()
+    {
+        $request_data = $this->getRequestDataSample();
+        $request_data['columns'][7]['search']['value'] = config('datatables.filters.null_delimiter');
+        $query_string = http_build_query($request_data);
+
+        $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
+        $response->assertStatus(200);
+        $this->assertEquals(User::whereNull('settings')->count(), $response->getData(true)['recordsFiltered']);
+    }
+
+    public function testSearchByRelationColumnNull()
+    {
+        $request_data = $this->getRequestDataSample();
+        $request_data['columns'][5]['search']['value'] = config('datatables.filters.null_delimiter');
+        $query_string = http_build_query($request_data);
+
+        $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
+        $response->assertStatus(200);
+        $this->assertEquals(User::whereNull('country_id')->count(), $response->getData(true)['recordsFiltered']);
+    }
 }

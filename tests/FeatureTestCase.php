@@ -58,6 +58,7 @@ class FeatureTestCase extends TestCase
             'filters' => [
                 'date_format' => 'd/m/Y',
                 'date_delimiter' => '-dateDelimiter-',
+                'null_delimiter' => '-nullDelimiter-',
             ],
         ]);
     }
