@@ -252,7 +252,7 @@ class Datatables
                 $field = $this->options['column_names'][$i];
                 $this->queryBuilder->where(function ($query) use ($table, $field, $searchValue) {
                     if (! isset($this->relations[$field])) { // if field exists on model
-                        $columnType = Schema::getColumnType($table, $field);
+                        
                         if (Str::contains($searchValue, config('datatables.filters.date_delimiter'))) {
                             $dates = explode(config('datatables.filters.date_delimiter'), $searchValue);
                             if (! empty($dates[0])) {
@@ -265,8 +265,12 @@ class Datatables
                             $query->where($table.'.'.$field, '')->orWhereNull($table.'.'.$field);
                         } elseif (Str::startsWith($searchValue, '|') && Str::endsWith($searchValue, '|')) {
                             $query->where($table.'.'.$field, trim($searchValue, '|'));
-                        } elseif ($columnType == 'json') {
-                            $query->whereRaw('LOWER(JSON_EXTRACT('.$table.'.'.$field.', "$.*")) LIKE ?', ['%'.strtolower($searchValue).'%']);
+                        } elseif (Schema::hasTable($table)) {
+                          if(Schema::getColumnType($table, $field) == 'json') {
+                             $query->whereRaw('LOWER(JSON_EXTRACT('.$table.'.'.$field.', "$.*")) LIKE ?', ['%'.strtolower($searchValue).'%']);
+                          } else {
+                            $query->where($table.'.'.$field, 'LIKE', '%'.$searchValue.'%');
+                          }
                         } else {
                             $query->where($table.'.'.$field, 'LIKE', '%'.$searchValue.'%');
                         }
