@@ -136,7 +136,6 @@ class FeatureTestCase extends TestCase
                     'dir' => 'asc',
                 ],
             ],
-            'column_names' => ['id', 'name', 'email', 'created_at', 'updated_at', 'country', 'userLogins', 'settings', 'userNameAndEmail'],
         ];
     }
 }

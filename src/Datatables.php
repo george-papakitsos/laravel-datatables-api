@@ -75,7 +75,7 @@ class Datatables
         $this->model = new $model();
 
         if (! method_exists($this->model, 'getDatatablesData')) {
-            throw new BadMethodCallException('Call to undefined method '.get_class($this->model).'::getDatatablesData()');
+            throw new BadMethodCallException('Method getDatatablesData is not set in '.get_class($this->model));
         }
 
         $this->queryBuilder = $this->model->query();
@@ -160,7 +160,10 @@ class Datatables
      */
     private function sortByColumn()
     {
-        $field = $this->options['column_names'][$this->options['order'][0]['column']];
+        $field = $this->options['columns'][$this->options['order'][0]['column']]['data'] ?? null;
+        if ($field === null) {
+            return;
+        }
         $direction = $this->options['order'][0]['dir'];
 
         if (! isset($this->relations[$field])) { // if field exists on model
@@ -217,7 +220,7 @@ class Datatables
         }
 
         if (! method_exists($this->model, 'scopeSearch')) {
-            throw new BadMethodCallException('Call to undefined method '.get_class($this->model).'::scopeSearch()');
+            throw new BadMethodCallException('Method scopeSearch is not set in '.get_class($this->model));
         }
 
         $terms = explode(' ', trim($this->options['search']['value']));
@@ -244,12 +247,12 @@ class Datatables
         $table = $this->model->getTable();
         $result = false;
 
-        foreach ($this->options['columns'] as $i => $col) {
+        foreach ($this->options['columns'] as $col) {
             $searchValue = $col['search']['value'];
             if (! empty($searchValue) || $searchValue === '0') {
                 $result = true;
 
-                $field = $this->options['column_names'][$i];
+                $field = $col['data'];
                 $this->queryBuilder->where(function ($query) use ($table, $field, $searchValue) {
                     if (! isset($this->relations[$field])) { // if field exists on model
                         if (Str::contains($searchValue, config('datatables.filters.date_delimiter'))) {
