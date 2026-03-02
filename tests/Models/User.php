@@ -43,25 +43,23 @@ class User extends Model
      */
     public function scopeSearch($query, $term)
     {
-        return $query->where('name', 'LIKE', '%'.$term.'%')->orWhere('email', 'LIKE', '%'.$term.'%');
+        $query->where('name', 'LIKE', '%'.$term.'%')->orWhere('email', 'LIKE', '%'.$term.'%');
     }
 
     public function scopeTest($query)
     {
-        return $query->where('id', 1);
+        $query->where('id', 1);
     }
 
     public function scopeByEmail($query, $value)
     {
-        return $query->where('email', $value);
+        $query->where('email', $value);
     }
 
     /**
      * Datatable fields
-     *
-     * @return array
      */
-    public function getDatatablesData()
+    public function getDatatablesData(): array
     {
         return [
             'id' => $this->id,
@@ -78,13 +76,11 @@ class User extends Model
 
     /**
      * Datatable related fields for correct sorting & column searching
-     *
-     * @return array
      */
-    public function getRelationFields()
+    public function getRelationFields(): array
     {
         return [
-            'country' => ['name', 'founded_at'],
+            'country' => ['name', implode(config('datatables.filters.date_field_prefix')).'d/m/Y##founded_at'],
             'userLogins' => [],
             'userNameAndEmail' => ['name', 'email'],
         ];

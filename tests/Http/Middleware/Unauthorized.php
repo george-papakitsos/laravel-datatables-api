@@ -3,19 +3,20 @@
 namespace GPapakitsos\LaravelDatatables\Tests\Http\Middleware;
 
 use Closure;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 class Unauthorized
 {
     /**
      * Handle an incoming request.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @return mixed
+     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
      */
-    public function handle($request, Closure $next)
+    public function handle(Request $request, Closure $next): Response
     {
-        if ($request->user() === null) {
-            return abort(401);
+        if (! $request->user()) {
+            abort(401);
         }
 
         return $next($request);

@@ -7,7 +7,7 @@ use GPapakitsos\LaravelDatatables\Tests\Models\User as User;
 
 class ResponseTest extends FeatureTestCase
 {
-    public function testResponseLength()
+    public function test_response_length()
     {
         $request_data = $this->getRequestDataSample();
         $query_string = http_build_query($request_data);
@@ -17,7 +17,7 @@ class ResponseTest extends FeatureTestCase
         $response->assertJsonCount($request_data['length'], 'data');
     }
 
-    public function testScope()
+    public function test_scope()
     {
         $request_data = $this->getRequestDataSample();
         $request_data['scope'] = 'test';
@@ -28,7 +28,7 @@ class ResponseTest extends FeatureTestCase
         $response->assertJsonCount(1, 'data');
     }
 
-    public function testScopeArray()
+    public function test_scope_array()
     {
         $request_data = $this->getRequestDataSample();
         $request_data['scope'] = ['byEmail', 'papakitsos_george@yahoo.gr'];
@@ -39,7 +39,7 @@ class ResponseTest extends FeatureTestCase
         $response->assertJsonCount(1, 'data');
     }
 
-    public function testExtraWhere()
+    public function test_extra_where()
     {
         $request_data = $this->getRequestDataSample();
         $request_data['extraWhere']['id'] = 1;
@@ -50,7 +50,7 @@ class ResponseTest extends FeatureTestCase
         $response->assertJsonCount(1, 'data');
     }
 
-    public function testExtraWhereArray()
+    public function test_extra_where_array()
     {
         $request_data = $this->getRequestDataSample();
         $request_data['extraWhere']['id'][] = 1;
@@ -62,7 +62,7 @@ class ResponseTest extends FeatureTestCase
         $response->assertJsonCount(2, 'data');
     }
 
-    public function testSorting()
+    public function test_sorting()
     {
         $request_data = $this->getRequestDataSample();
         $request_data['order'][0]['column'] = 3;
@@ -73,7 +73,7 @@ class ResponseTest extends FeatureTestCase
         $this->assertEquals($this->user->id, $response->getData(true)['data'][0]['id']);
     }
 
-    public function testSortByBelongsToColumn()
+    public function test_sort_by_belongs_to_column()
     {
         $request_data = $this->getRequestDataSample();
         $request_data['order'][0]['column'] = 5;
@@ -85,7 +85,7 @@ class ResponseTest extends FeatureTestCase
         $this->assertEquals($this->user->id, $response->getData(true)['data'][0]['id']);
     }
 
-    public function testSortByHasManyColumn()
+    public function test_sort_by_has_many_column()
     {
         $request_data = $this->getRequestDataSample();
         $request_data['order'][0]['column'] = 6;
@@ -97,7 +97,7 @@ class ResponseTest extends FeatureTestCase
         $this->assertEquals($this->user->id, $response->getData(true)['data'][0]['id']);
     }
 
-    public function testSortByHasOneColumn()
+    public function test_sort_by_has_one_column()
     {
         $request_data = $this->getRequestDataSample();
         $request_data['order'][0]['column'] = 8;
@@ -109,7 +109,7 @@ class ResponseTest extends FeatureTestCase
         $this->assertEquals(User::orderBy('name')->orderBy('email')->first()->id, $response->getData(true)['data'][0]['id']);
     }
 
-    public function testSearch()
+    public function test_search()
     {
         $request_data = $this->getRequestDataSample();
         $request_data['search']['value'] = 'Papakitsos';
@@ -120,7 +120,7 @@ class ResponseTest extends FeatureTestCase
         $response->assertJsonCount(1, 'data');
     }
 
-    public function testSearchByColumn()
+    public function test_search_by_column()
     {
         $request_data = $this->getRequestDataSample();
         $request_data['columns'][2]['search']['value'] = 'papakitsos_george@yahoo.gr';
@@ -131,7 +131,7 @@ class ResponseTest extends FeatureTestCase
         $response->assertJsonCount(1, 'data');
     }
 
-    public function testSearchByColumnDate()
+    public function test_search_by_column_date()
     {
         $request_data = $this->getRequestDataSample();
         $request_data['columns'][3]['search']['value'] = '23/04/1981'.config('datatables.filters.date_delimiter').'23/04/1981';
@@ -142,7 +142,7 @@ class ResponseTest extends FeatureTestCase
         $response->assertJsonCount(1, 'data');
     }
 
-    public function testSearchByColumnJson()
+    public function test_search_by_column_json()
     {
         $request_data = $this->getRequestDataSample();
         $request_data['columns'][7]['search']['value'] = 'PAPAKI';
@@ -153,7 +153,7 @@ class ResponseTest extends FeatureTestCase
         $response->assertJsonCount(1, 'data');
     }
 
-    public function testSearchByBelongsToColumn()
+    public function test_search_by_belongs_to_column()
     {
         $request_data = $this->getRequestDataSample();
         $request_data['columns'][5]['search']['value'] = $this->country->name;
@@ -164,19 +164,20 @@ class ResponseTest extends FeatureTestCase
         $this->assertEquals($this->user->id, $response->getData(true)['data'][0]['id']);
     }
 
-    public function testRelationDateColumnSearch()
+    public function test_search_by_belongs_to_date_column()
     {
-        foreach (['15/06/1995', '15-06-1995'] as $searchValue) {
+        foreach (['15/06/1995', '15', '15/', '15/06', '15/06/'] as $searchValue) {
             $request_data = $this->getRequestDataSample();
             $request_data['columns'][5]['search']['value'] = $searchValue;
             $response = $this->get('/'.$this->route_prefix.'/User?'.http_build_query($request_data));
+
             $response->assertStatus(200);
             $response->assertJsonCount(1, 'data');
             $this->assertEquals($this->user->id, $response->getData(true)['data'][0]['id']);
         }
     }
 
-    public function testSearchByHasOneColumn()
+    public function test_search_by_has_one_column()
     {
         foreach (['Papakitsos', 'papakitsos_george@yahoo.gr'] as $searchTerm) {
             $request_data = $this->getRequestDataSample();
@@ -189,7 +190,7 @@ class ResponseTest extends FeatureTestCase
         }
     }
 
-    public function testSearchByColumnNull()
+    public function test_search_by_column_null()
     {
         $request_data = $this->getRequestDataSample();
         $request_data['columns'][7]['search']['value'] = config('datatables.filters.null_delimiter');
@@ -200,7 +201,7 @@ class ResponseTest extends FeatureTestCase
         $this->assertEquals(User::whereNull('settings')->count(), $response->getData(true)['recordsFiltered']);
     }
 
-    public function testSearchByRelationColumnNull()
+    public function test_search_by_relation_column_null()
     {
         $request_data = $this->getRequestDataSample();
         $request_data['columns'][5]['search']['value'] = config('datatables.filters.null_delimiter');

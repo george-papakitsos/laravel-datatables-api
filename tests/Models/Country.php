@@ -10,15 +10,8 @@ class Country extends Model
 {
     use HasFactory;
 
-    /**
-     * Indicates if the model should be timestamped.
-     *
-     * @var bool
-     */
-    public $timestamps = false;
-
     protected $fillable = ['name', 'founded_at'];
-
+    public $timestamps = false;
     protected $casts = [
         'founded_at' => 'date',
     ];

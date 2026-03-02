@@ -16,14 +16,24 @@ class CountryFactory extends Factory
 
     /**
      * Define the model's default state.
-     *
-     * @return array
      */
-    public function definition()
+    public function definition(): array
     {
         return [
-            'name' => $this->faker->country(),
-            'founded_at' => null,
+            'name' => fake()->country(),
+            'founded_at' => fake()->date(),
         ];
+    }
+
+    /**
+     * Indicate that the user is suspended.
+     */
+    public function founded(string $founded_at): Factory
+    {
+        return $this->state(function (array $attributes) use ($founded_at) {
+            return [
+                'founded_at' => $founded_at,
+            ];
+        });
     }
 }

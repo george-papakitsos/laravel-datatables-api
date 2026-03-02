@@ -2,14 +2,19 @@
 This package handles server-side implementation of jQuery DataTables Plugin by using Laravel's Eloquent ORM.
 
 ## Requirements
-- [PHP >= 7.0](https://www.php.net/)
-- [Laravel >= 5.5](https://laravel.com/)
+- [PHP >= 8.1](https://www.php.net/)
+- [Laravel >= 10.0](https://laravel.com/)
 - [jQuery DataTables >= 1.10](https://datatables.net/)
 
 ## Installation
 Require the package with composer.
+### Laravel version >= 10
 ```shell
 composer require gpapakitsos/laravel-datatables-api
+```
+### Laravel version <= 9
+```bash
+composer require gpapakitsos/laravel-datatables-api "~1.12"
 ```
 
 Laravel uses Package Auto-Discovery, so doesn't require you to manually add the ServiceProvider.
