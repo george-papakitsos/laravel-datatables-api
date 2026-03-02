@@ -8,11 +8,17 @@ use Illuminate\Support\ServiceProvider;
 class DatatablesServiceProvider extends ServiceProvider
 {
     /**
-     * Perform post-registration booting of services.
-     *
-     * @return void
+     * Register any package services.
      */
-    public function boot()
+    public function register(): void
+    {
+        $this->mergeConfigFrom(__DIR__.'/config/datatables.php', 'datatables');
+    }
+
+    /**
+     * Bootstrap any package services.
+     */
+    public function boot(): void
     {
         if ($this->app->runningInConsole()) {
             $this->publishes([

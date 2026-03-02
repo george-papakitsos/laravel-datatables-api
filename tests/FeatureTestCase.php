@@ -10,9 +10,9 @@ use Orchestra\Testbench\TestCase;
 
 class FeatureTestCase extends TestCase
 {
-    public $route_prefix;
-    public $country;
-    public $user;
+    public string $route_prefix;
+    public Country $country;
+    public User $user;
 
     protected function setUp(): void
     {
@@ -21,7 +21,8 @@ class FeatureTestCase extends TestCase
         $this->loadMigrationsFrom(__DIR__.'/database/migrations');
 
         User::factory()->has(UserLogin::factory()->count(rand(1, 5)))->count(49)->create();
-        $this->country = Country::factory()->create();
+        Country::factory()->count(10)->create();
+        $this->country = Country::factory()->founded('1995-06-15')->create();
         $this->user = User::factory()->has(UserLogin::factory()->count(rand(10, 20)))->create([
             'name' => 'George Papakitsos',
             'email' => 'papakitsos_george@yahoo.gr',
@@ -40,30 +41,12 @@ class FeatureTestCase extends TestCase
 
     protected function getEnvironmentSetUp($app)
     {
-        $config = $app->get('config');
+        $app['config']->set('datatables.models_namespace', 'GPapakitsos\LaravelDatatables\Tests\Models\\');
 
-        $config->set('database.default', 'testbench');
-        $config->set('database.connections.testbench', [
-            'driver' => 'sqlite',
-            'database' => ':memory:',
-            'prefix' => '',
-        ]);
-
-        $this->route_prefix = 'datatable';
-        $config->set('datatables', [
-            'models_namespace' => 'GPapakitsos\LaravelDatatables\Tests\Models\\',
-            'routes' => [
-                'prefix' => $this->route_prefix,
-            ],
-            'filters' => [
-                'date_format' => 'd/m/Y',
-                'date_delimiter' => '-dateDelimiter-',
-                'null_delimiter' => '-nullDelimiter-',
-            ],
-        ]);
+        $this->route_prefix = $app['config']->get('datatables.routes.prefix');
     }
 
-    protected function getRequestDataSample()
+    protected function getRequestDataSample(): array
     {
         return [
             'draw' => 1,

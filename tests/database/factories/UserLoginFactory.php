@@ -16,13 +16,11 @@ class UserLoginFactory extends Factory
 
     /**
      * Define the model's default state.
-     *
-     * @return array
      */
-    public function definition()
+    public function definition(): array
     {
         return [
-            'when' => $this->faker->dateTimeBetween('-1 week', '+1 week'),
+            'when' => fake()->dateTimeBetween('-1 week', '+1 week'),
         ];
     }
 }

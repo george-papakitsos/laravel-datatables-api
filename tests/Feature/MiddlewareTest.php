@@ -10,12 +10,12 @@ class MiddlewareTest extends FeatureTestCase
     {
         parent::getEnvironmentSetUp($app);
 
-        $app->get('config')->set('datatables.middleware', [
+        $app['config']->set('datatables.middleware', [
             'GPapakitsos\LaravelDatatables\Tests\Http\Middleware\Unauthorized',
         ]);
     }
 
-    public function testMiddleware()
+    public function test_middleware()
     {
         $request_data = $this->getRequestDataSample();
         $query_string = http_build_query($request_data);

@@ -8,16 +8,11 @@ use Illuminate\Routing\Controller;
 
 class DatatablesController extends Controller
 {
-    protected $request;
+    public function __construct(protected Request $request) {}
 
-    public function __construct(Request $request)
+    public function getData(): \Illuminate\Http\JsonResponse
     {
-        $this->request = $request;
-    }
-
-    public function getData($model)
-    {
-        $Datatable = new Datatables($this->request, $model);
+        $Datatable = new Datatables($this->request, $this->request->model ?? '');
 
         return $Datatable->response();
     }

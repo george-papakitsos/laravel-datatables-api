@@ -20,10 +20,13 @@ class Datatables
 {
     /**
      * Holds all input data
-     *
-     * @var array
      */
-    protected $options = [];
+    protected array $options = [];
+
+    /**
+     * The PDO driver name
+     */
+    protected string $driver;
 
     /**
      * The Eloquent model
@@ -34,45 +37,35 @@ class Datatables
 
     /**
      * The query builder instance
-     *
-     * @var \Illuminate\Database\Eloquent\Builder
      */
-    protected $queryBuilder;
+    protected \Illuminate\Database\Eloquent\Builder $queryBuilder;
 
     /**
      * Holds the relation fields of model
-     *
-     * @var array
      */
-    protected $relations;
+    protected array $relations;
 
     /**
      * Count of all model's records
-     *
-     * @var int
      */
-    protected $totalCount;
+    protected int $totalCount;
 
     /**
      * Count of filtered model's records
-     *
-     * @var int
      */
-    protected $filteredCount;
+    protected int $filteredCount;
 
     /**
      * The constructor
      *
-     * @param  string  $model
-     *
      * @throws BadMethodCallException
      */
-    public function __construct(Request $request, $model)
+    public function __construct(Request $request, string $model)
     {
         $this->options = $request->all();
 
         $model = config('datatables.models_namespace').$model;
-        $this->model = new $model();
+        $this->model = new $model;
 
         if (! method_exists($this->model, 'getDatatablesData')) {
             throw new BadMethodCallException('Method getDatatablesData is not set in '.get_class($this->model));
@@ -81,14 +74,14 @@ class Datatables
         $this->queryBuilder = $this->model->query();
 
         $this->relations = method_exists($this->model, 'getRelationFields') ? $this->model->getRelationFields() : [];
+
+        $this->driver = $this->queryBuilder->getConnection()->getDriverName();
     }
 
     /**
      * Builds the JSON response
-     *
-     * @return \Illuminate\Http\JsonResponse
      */
-    public function response()
+    public function response(): \Illuminate\Http\JsonResponse
     {
         if (! empty($this->options['scope'])) {
             $this->applyScope();
@@ -119,10 +112,8 @@ class Datatables
 
     /**
      * Applies a scope to the query builder
-     *
-     * @return void
      */
-    private function applyScope()
+    private function applyScope(): void
     {
         $scopeOpt = $this->options['scope'];
 
@@ -141,10 +132,8 @@ class Datatables
 
     /**
      * Applies an extra where condition to the query builder
-     *
-     * @return void
      */
-    private function applyExtraWhere()
+    private function applyExtraWhere(): void
     {
         foreach ($this->options['extraWhere'] as $field => $value) {
             is_array($value)
@@ -155,10 +144,8 @@ class Datatables
 
     /**
      * Applies ORDER BY to the query builder
-     *
-     * @return void
      */
-    private function sortByColumn()
+    private function sortByColumn(): void
     {
         $field = $this->options['columns'][$this->options['order'][0]['column']]['data'] ?? null;
         if ($field === null) {
@@ -179,7 +166,12 @@ class Datatables
                     ->select($table.'.*');
                 foreach ($this->relations[$field] as $otherField) {
                     if (is_string($otherField)) {
-                        $this->queryBuilder->orderBy($otherTable.'.'.$otherField, $direction);
+                        if (Str::startsWith($otherField, implode(config('datatables.filters.date_field_prefix')))) {
+                            $otherField = Str::afterLast($otherField, config('datatables.filters.date_field_prefix.delimiter'));
+                            $this->queryBuilder->orderBy($otherTable.'.'.$otherField, $direction);
+                        } else {
+                            $this->queryBuilder->orderBy($otherTable.'.'.$otherField, $direction);
+                        }
                     } else {
                         $relationThrough = $relation->getRelated()->{$otherField[0]}();
                         $relationThroughOtherTable = $relationThrough->getRelated()->getTable();
@@ -210,10 +202,8 @@ class Datatables
 
     /**
      * Searches the collection
-     *
-     * @return bool
      */
-    private function search()
+    private function search(): bool
     {
         if (empty($this->options['search']['value'])) {
             return false;
@@ -239,12 +229,11 @@ class Datatables
 
     /**
      * Applies datatables global search
-     *
-     * @return bool
      */
-    private function searchByColumn()
+    private function searchByColumn(): bool
     {
         $table = $this->model->getTable();
+        $filtersConfig = config('datatables.filters');
         $result = false;
 
         foreach ($this->options['columns'] as $col) {
@@ -253,17 +242,17 @@ class Datatables
                 $result = true;
 
                 $field = $col['data'];
-                $this->queryBuilder->where(function ($query) use ($table, $field, $searchValue) {
+                $this->queryBuilder->where(function ($query) use ($table, $field, $searchValue, $filtersConfig) {
                     if (! isset($this->relations[$field])) { // if field exists on model
-                        if (Str::contains($searchValue, config('datatables.filters.date_delimiter'))) {
-                            $dates = explode(config('datatables.filters.date_delimiter'), $searchValue);
+                        if (Str::contains($searchValue, $filtersConfig['date_delimiter'])) {
+                            $dates = explode($filtersConfig['date_delimiter'], $searchValue);
                             if (! empty($dates[0])) {
-                                $query->whereRaw("DATE(`$table`.`$field`) >= '".Carbon::createFromFormat(config('datatables.filters.date_format'), $dates[0])->toDateString()."'");
+                                $query->whereRaw(DB::raw("DATE(`$table`.`$field`) >= '".Carbon::createFromFormat($filtersConfig['date_format'], $dates[0])->toDateString()."'"));
                             }
                             if (! empty($dates[1])) {
-                                $query->whereRaw("DATE(`$table`.`$field`) <= '".Carbon::createFromFormat(config('datatables.filters.date_format'), $dates[1])->toDateString()."'");
+                                $query->whereRaw(DB::raw("DATE(`$table`.`$field`) <= '".Carbon::createFromFormat($filtersConfig['date_format'], $dates[1])->toDateString()."'"));
                             }
-                        } elseif (Str::contains($searchValue, config('datatables.filters.null_delimiter'))) {
+                        } elseif (Str::contains($searchValue, $filtersConfig['null_delimiter'])) {
                             $query->where($table.'.'.$field, '')->orWhereNull($table.'.'.$field);
                         } elseif (Str::startsWith($searchValue, '|') && Str::endsWith($searchValue, '|')) {
                             $query->where($table.'.'.$field, trim($searchValue, '|'));
@@ -276,23 +265,41 @@ class Datatables
                         $relation = $this->model->$field();
                         $otherTable = $relation->getRelated()->getTable();
                         if (! $relation instanceof \Illuminate\Database\Eloquent\Relations\MorphTo) {
-                            if (Str::contains($searchValue, config('datatables.filters.null_delimiter'))) {
+                            if (Str::contains($searchValue, $filtersConfig['null_delimiter'])) {
                                 $query->whereDoesntHave($field);
                             } else {
-                                $query->whereHas($field, function ($query) use ($field, $searchValue, $otherTable) {
-                                    $query->where(function ($query) use ($field, $searchValue, $otherTable) {
+                                $query->whereHas($field, function ($query) use ($field, $searchValue, $otherTable, $filtersConfig) {
+                                    $query->where(function ($query) use ($field, $searchValue, $otherTable, $filtersConfig) {
                                         foreach ($this->relations[$field] as $otherField) {
                                             if (is_string($otherField)) {
-                                                if (Str::contains($searchValue, config('datatables.filters.date_delimiter'))) {
-                                                    $dates = explode(config('datatables.filters.date_delimiter'), $searchValue);
+                                                if (Str::contains($searchValue, $filtersConfig['date_delimiter'])) {
+                                                    $dates = explode($filtersConfig['date_delimiter'], $searchValue);
                                                     if (! empty($dates[0])) {
-                                                        $query->whereRaw("DATE(`$otherTable`.`$otherField`) >= '".Carbon::createFromFormat(config('datatables.filters.date_format'), $dates[0])->toDateString()."'");
+                                                        $query->whereRaw(DB::raw("DATE(`$otherTable`.`$otherField`) >= '".Carbon::createFromFormat($filtersConfig['date_format'], $dates[0])->toDateString()."'"));
                                                     }
                                                     if (! empty($dates[1])) {
-                                                        $query->whereRaw("DATE(`$otherTable`.`$otherField`) <= '".Carbon::createFromFormat(config('datatables.filters.date_format'), $dates[1])->toDateString()."'");
+                                                        $query->whereRaw(DB::raw("DATE(`$otherTable`.`$otherField`) <= '".Carbon::createFromFormat($filtersConfig['date_format'], $dates[1])->toDateString()."'"));
                                                     }
                                                 } elseif (Str::startsWith($searchValue, '|') && Str::endsWith($searchValue, '|')) {
                                                     $query->orWhere($otherTable.'.'.$otherField, trim($searchValue, '|'));
+                                                } elseif (Str::startsWith($otherField, implode($filtersConfig['date_field_prefix']))) {
+                                                    $date_field_prefix_array = explode($filtersConfig['date_field_prefix']['delimiter'], $otherField);
+                                                    if (count($date_field_prefix_array) !== 3) {
+                                                        continue;
+                                                    }
+
+                                                    $dateFormat = strtr($date_field_prefix_array[1], [
+                                                        'd' => '%d', 'j' => '%e', 'm' => '%m', 'Y' => '%Y', 'y' => '%y',
+                                                    ]);
+                                                    if (empty($dateFormat)) {
+                                                        continue;
+                                                    }
+
+                                                    $otherField = $date_field_prefix_array[2];
+                                                    $dateExpr = $this->driver === 'sqlite'
+                                                        ? "strftime('".$dateFormat."', `$otherTable`.`$otherField`)"
+                                                        : "DATE_FORMAT(`$otherTable`.`$otherField`, '".$dateFormat."')";
+                                                    $query->orWhere(DB::raw($dateExpr), 'LIKE', '%'.$searchValue.'%');
                                                 } else {
                                                     $query->orWhere($otherTable.'.'.$otherField, 'LIKE', '%'.$searchValue.'%');
                                                 }
@@ -334,17 +341,15 @@ class Datatables
 
     /**
      * Formats the data for JSON response
-     *
-     * @return array
      */
-    private function getFormatedData()
+    private function getFormatedData(): array
     {
         $collection = $this->options['length'] != '-1'
             ? $this->queryBuilder->skip($this->options['start'])->take($this->options['length'])->get()
             : $this->queryBuilder->get();
 
         return [
-            'draw' => $this->options['draw'],
+            'draw' => (int) $this->options['draw'],
             'recordsTotal' => $this->totalCount,
             'recordsFiltered' => $this->filteredCount,
             'data' => $collection->map(function ($model) {
