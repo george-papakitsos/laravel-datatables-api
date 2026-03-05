@@ -9,7 +9,6 @@
 
 namespace GPapakitsos\LaravelDatatables;
 
-use BadMethodCallException;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -58,17 +57,23 @@ class Datatables
     /**
      * The constructor
      *
-     * @throws BadMethodCallException
+     * @throws \Symfony\Component\HttpKernel\Exception\HttpException
      */
     public function __construct(Request $request, string $model)
     {
         $this->options = $request->all();
 
+        foreach (['columns', 'length'] as $key) {
+            if (! array_key_exists($key, $this->options)) {
+                abort(400, "Key '".$key."' must be provided in request data");
+            }
+        }
+
         $model = config('datatables.models_namespace').$model;
         $this->model = new $model;
 
         if (! method_exists($this->model, 'getDatatablesData')) {
-            throw new BadMethodCallException('Method getDatatablesData is not set in '.get_class($this->model));
+            abort(400, 'Method getDatatablesData is not set in '.get_class($this->model));
         }
 
         $this->queryBuilder = $this->model->query();
@@ -151,7 +156,7 @@ class Datatables
         if ($field === null) {
             return;
         }
-        $direction = $this->options['order'][0]['dir'];
+        $direction = $this->options['order'][0]['dir'] ?? 'asc';
 
         if (! isset($this->relations[$field])) { // if field exists on model
             $this->queryBuilder->orderBy($field, $direction);
@@ -210,7 +215,7 @@ class Datatables
         }
 
         if (! method_exists($this->model, 'scopeSearch')) {
-            throw new BadMethodCallException('Method scopeSearch is not set in '.get_class($this->model));
+            abort(400, 'Method scopeSearch is not set in '.get_class($this->model));
         }
 
         $terms = explode(' ', trim($this->options['search']['value']));
@@ -344,15 +349,18 @@ class Datatables
      */
     private function getFormatedData(): array
     {
-        $collection = $this->options['length'] != '-1'
-            ? $this->queryBuilder->skip($this->options['start'])->take($this->options['length'])->get()
-            : $this->queryBuilder->get();
+        if (isset($this->options['start'])) {
+            $this->queryBuilder->skip((int) $this->options['start']);
+        }
+        if ($this->options['length'] != '-1') {
+            $this->queryBuilder->take((int) $this->options['length']);
+        }
 
         return [
-            'draw' => (int) $this->options['draw'],
+            'draw' => (int) ($this->options['draw'] ?? 1),
             'recordsTotal' => $this->totalCount,
             'recordsFiltered' => $this->filteredCount,
-            'data' => $collection->map(function ($model) {
+            'data' => $this->queryBuilder->get()->map(function ($model) {
                 return $model->getDatatablesData();
             }),
         ];
