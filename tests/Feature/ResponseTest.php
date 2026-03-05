@@ -3,10 +3,88 @@
 namespace GPapakitsos\LaravelDatatables\Tests\Feature;
 
 use GPapakitsos\LaravelDatatables\Tests\FeatureTestCase;
-use GPapakitsos\LaravelDatatables\Tests\Models\User as User;
+use GPapakitsos\LaravelDatatables\Tests\Models;
+use Illuminate\Support\Arr;
 
 class ResponseTest extends FeatureTestCase
 {
+    public function test_request_data_without_columns()
+    {
+        $request_without_columns = Arr::except($this->getRequestDataSample(), ['columns']);
+        $response = $this->get('/'.$this->route_prefix.'/User?'.http_build_query($request_without_columns));
+
+        $response->assertBadRequest();
+    }
+
+    public function test_request_data_without_length()
+    {
+        $request_without_length = Arr::except($this->getRequestDataSample(), ['length']);
+        $response = $this->get('/'.$this->route_prefix.'/User?'.http_build_query($request_without_length));
+
+        $response->assertBadRequest();
+    }
+
+    public function test_request_data_without_start()
+    {
+        $request_without_start = Arr::except($this->getRequestDataSample(), ['start']);
+        $response = $this->get('/'.$this->route_prefix.'/User?'.http_build_query($request_without_start));
+
+        $response->assertStatus(200);
+    }
+
+    public function test_request_data_without_order()
+    {
+        $request_without_order = Arr::except($this->getRequestDataSample(), ['order']);
+        $response = $this->get('/'.$this->route_prefix.'/User?'.http_build_query($request_without_order));
+
+        $response->assertStatus(200);
+    }
+
+    public function test_request_data_with_empty_order()
+    {
+        $request_with_empty_order = Arr::except($this->getRequestDataSample(), ['order.0']);
+        $response = $this->get('/'.$this->route_prefix.'/User?'.http_build_query($request_with_empty_order));
+
+        $response->assertStatus(200);
+    }
+
+    public function test_request_data_without_order_dir()
+    {
+        $request_without_order_dir = Arr::except($this->getRequestDataSample(), ['order.0.dir']);
+        $response = $this->get('/'.$this->route_prefix.'/User?'.http_build_query($request_without_order_dir));
+
+        $response->assertStatus(200);
+    }
+
+    public function test_model_in_another_namespace()
+    {
+        $request_data = $this->getRequestDataSample(Models\Locations\Country::class);
+        $query_string = http_build_query($request_data);
+
+        $response = $this->get('/'.$this->route_prefix.'/'.urlencode('Locations\Country').'?'.$query_string);
+        $response->assertStatus(200);
+        $response->assertJsonCount($request_data['length'], 'data');
+    }
+
+    public function test_model_without_get_datatables_data_method()
+    {
+        $request_data = $this->getRequestDataSample(Models\UserLogin::class);
+        $query_string = http_build_query($request_data);
+
+        $response = $this->get('/'.$this->route_prefix.'/UserLogin?'.$query_string);
+        $response->assertBadRequest();
+    }
+
+    public function test_model_without_scope_search_method()
+    {
+        $request_data = $this->getRequestDataSample(Models\Locations\Country::class);
+        $request_data['search']['value'] = 'term';
+        $query_string = http_build_query($request_data);
+
+        $response = $this->get('/'.$this->route_prefix.'/'.urlencode('Locations\Country').'?'.$query_string);
+        $response->assertBadRequest();
+    }
+
     public function test_response_length()
     {
         $request_data = $this->getRequestDataSample();
@@ -106,7 +184,7 @@ class ResponseTest extends FeatureTestCase
 
         $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
         $response->assertStatus(200);
-        $this->assertEquals(User::orderBy('name')->orderBy('email')->first()->id, $response->getData(true)['data'][0]['id']);
+        $this->assertEquals(Models\User::orderBy('name')->orderBy('email')->first()->id, $response->getData(true)['data'][0]['id']);
     }
 
     public function test_search()
@@ -198,7 +276,7 @@ class ResponseTest extends FeatureTestCase
 
         $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
         $response->assertStatus(200);
-        $this->assertEquals(User::whereNull('settings')->count(), $response->getData(true)['recordsFiltered']);
+        $this->assertEquals(Models\User::whereNull('settings')->count(), $response->getData(true)['recordsFiltered']);
     }
 
     public function test_search_by_relation_column_null()
@@ -209,6 +287,6 @@ class ResponseTest extends FeatureTestCase
 
         $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
         $response->assertStatus(200);
-        $this->assertEquals(User::whereNull('country_id')->count(), $response->getData(true)['recordsFiltered']);
+        $this->assertEquals(Models\User::whereNull('country_id')->count(), $response->getData(true)['recordsFiltered']);
     }
 }
