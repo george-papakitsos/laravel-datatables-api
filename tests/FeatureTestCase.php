@@ -3,16 +3,13 @@
 namespace GPapakitsos\LaravelDatatables\Tests;
 
 use GPapakitsos\LaravelDatatables\DatatablesServiceProvider;
-use GPapakitsos\LaravelDatatables\Tests\Models\Country as Country;
-use GPapakitsos\LaravelDatatables\Tests\Models\User as User;
-use GPapakitsos\LaravelDatatables\Tests\Models\UserLogin as UserLogin;
 use Orchestra\Testbench\TestCase;
 
 class FeatureTestCase extends TestCase
 {
     public string $route_prefix;
-    public Country $country;
-    public User $user;
+    public Models\Locations\Country $country;
+    public Models\User $user;
 
     protected function setUp(): void
     {
@@ -20,10 +17,10 @@ class FeatureTestCase extends TestCase
 
         $this->loadMigrationsFrom(__DIR__.'/database/migrations');
 
-        User::factory()->has(UserLogin::factory()->count(rand(1, 5)))->count(49)->create();
-        Country::factory()->count(10)->create();
-        $this->country = Country::factory()->founded('1995-06-15')->create();
-        $this->user = User::factory()->has(UserLogin::factory()->count(rand(10, 20)))->create([
+        Models\User::factory()->has(Models\UserLogin::factory()->count(rand(1, 5)))->count(49)->create();
+        Models\Locations\Country::factory()->count(29)->create();
+        $this->country = Models\Locations\Country::factory()->founded('1995-06-15')->create();
+        $this->user = Models\User::factory()->has(Models\UserLogin::factory()->count(rand(10, 20)))->create([
             'name' => 'George Papakitsos',
             'email' => 'papakitsos_george@yahoo.gr',
             'country_id' => $this->country->id,
@@ -46,11 +43,10 @@ class FeatureTestCase extends TestCase
         $this->route_prefix = $app['config']->get('datatables.routes.prefix');
     }
 
-    protected function getRequestDataSample(): array
+    protected function getRequestDataSample(string $model = Models\User::class): array
     {
-        return [
-            'draw' => 1,
-            'columns' => [
+        $columns = array_merge(
+            [
                 [
                     'data' => 'id',
                     'searchable' => true,
@@ -59,55 +55,87 @@ class FeatureTestCase extends TestCase
                         'value' => '',
                     ],
                 ],
-                [
-                    'data' => 'name',
-                    'search' => [
-                        'value' => '',
-                    ],
-                ],
-                [
-                    'data' => 'email',
-                    'search' => [
-                        'value' => '',
-                    ],
-                ],
-                [
-                    'data' => 'created_at',
-                    'search' => [
-                        'value' => '',
-                    ],
-                ],
-                [
-                    'data' => 'updated_at',
-                    'search' => [
-                        'value' => '',
-                    ],
-                ],
-                [
-                    'data' => 'country',
-                    'search' => [
-                        'value' => '',
-                    ],
-                ],
-                [
-                    'data' => 'userLogins',
-                    'search' => [
-                        'value' => '',
-                    ],
-                ],
-                [
-                    'data' => 'settings',
-                    'search' => [
-                        'value' => '',
-                    ],
-                ],
-                [
-                    'data' => 'userNameAndEmail',
-                    'search' => [
-                        'value' => '',
-                    ],
-                ],
             ],
+            match ($model) {
+                Models\User::class => [
+                    [
+                        'data' => 'name',
+                        'search' => [
+                            'value' => '',
+                        ],
+                    ],
+                    [
+                        'data' => 'email',
+                        'search' => [
+                            'value' => '',
+                        ],
+                    ],
+                    [
+                        'data' => 'created_at',
+                        'search' => [
+                            'value' => '',
+                        ],
+                    ],
+                    [
+                        'data' => 'updated_at',
+                        'search' => [
+                            'value' => '',
+                        ],
+                    ],
+                    [
+                        'data' => 'country',
+                        'search' => [
+                            'value' => '',
+                        ],
+                    ],
+                    [
+                        'data' => 'userLogins',
+                        'search' => [
+                            'value' => '',
+                        ],
+                    ],
+                    [
+                        'data' => 'settings',
+                        'search' => [
+                            'value' => '',
+                        ],
+                    ],
+                    [
+                        'data' => 'userNameAndEmail',
+                        'search' => [
+                            'value' => '',
+                        ],
+                    ],
+                ],
+                Models\Locations\Country::class => [
+                    [
+                        'data' => 'name',
+                        'search' => [
+                            'value' => '',
+                        ],
+                    ],
+                    [
+                        'data' => 'founded_at',
+                        'search' => [
+                            'value' => '',
+                        ],
+                    ],
+                ],
+                Models\UserLogin::class => [
+                    [
+                        'data' => 'when',
+                        'search' => [
+                            'value' => '',
+                        ],
+                    ],
+                ],
+                default => [],
+            }
+        );
+
+        return [
+            'draw' => 1,
+            'columns' => $columns,
             'start' => 0,
             'length' => 20,
             'search' => [

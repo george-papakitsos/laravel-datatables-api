@@ -2,7 +2,7 @@
 
 namespace Database\Factories;
 
-use GPapakitsos\LaravelDatatables\Tests\Models\Country;
+use GPapakitsos\LaravelDatatables\Tests\Models\Locations\Country;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class CountryFactory extends Factory

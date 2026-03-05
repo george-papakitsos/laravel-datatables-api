@@ -25,7 +25,7 @@ class User extends Model
      */
     public function country()
     {
-        return $this->belongsTo(Country::class);
+        return $this->belongsTo(Locations\Country::class);
     }
 
     public function userLogins()

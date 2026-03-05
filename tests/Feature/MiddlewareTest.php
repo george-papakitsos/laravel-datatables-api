@@ -11,7 +11,7 @@ class MiddlewareTest extends FeatureTestCase
         parent::getEnvironmentSetUp($app);
 
         $app['config']->set('datatables.middleware', [
-            'GPapakitsos\LaravelDatatables\Tests\Http\Middleware\Unauthorized',
+            \GPapakitsos\LaravelDatatables\Tests\Http\Middleware\Unauthorized::class,
         ]);
     }
 
