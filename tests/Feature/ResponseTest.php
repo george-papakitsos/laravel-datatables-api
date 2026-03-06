@@ -24,6 +24,16 @@ class ResponseTest extends FeatureTestCase
         $response->assertBadRequest();
     }
 
+    public function test_request_data_without_paging()
+    {
+        $request_without_paging = $this->getRequestDataSample();
+        $request_without_paging['length'] = '-1';
+        $response = $this->get('/'.$this->route_prefix.'/User?'.http_build_query($request_without_paging));
+
+        $response->assertStatus(200);
+        $response->assertJsonCount($response->offsetGet('recordsTotal'), 'data');
+    }
+
     public function test_request_data_without_start()
     {
         $request_without_start = Arr::except($this->getRequestDataSample(), ['start']);
