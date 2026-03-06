@@ -349,11 +349,12 @@ class Datatables
      */
     private function getFormatedData(): array
     {
-        if (isset($this->options['start'])) {
-            $this->queryBuilder->skip((int) $this->options['start']);
-        }
-        if ($this->options['length'] != '-1') {
-            $this->queryBuilder->take((int) $this->options['length']);
+        $take = (int) $this->options['length'];
+        if ($take !== -1) {
+            $this->queryBuilder->take($take);
+            if (isset($this->options['start'])) {
+                $this->queryBuilder->skip((int) $this->options['start']);
+            }
         }
 
         return [
