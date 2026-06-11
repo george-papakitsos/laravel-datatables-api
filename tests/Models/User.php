@@ -38,6 +38,11 @@ class User extends Model
         return $this->hasOne(User::class, 'id', 'id');
     }
 
+    public function latestUserLogins()
+    {
+        return $this->userLogins()->one()->ofMany('when', 'max');
+    }
+
     /**
      * Scopes
      */
@@ -71,6 +76,7 @@ class User extends Model
             'userLogins' => $this->userLogins->count(),
             'settings' => $this->settings,
             'userNameAndEmail' => $this->name.' '.$this->email,
+            'latestUserLogins' => $this->latestUserLogins?->when,
         ];
     }
 
@@ -83,6 +89,7 @@ class User extends Model
             'country' => ['name', implode(config('datatables.filters.date_field_prefix')).'d/m/Y##founded_at'],
             'userLogins' => [],
             'userNameAndEmail' => ['name', 'email'],
+            'latestUserLogins' => ['when'],
         ];
     }
 }

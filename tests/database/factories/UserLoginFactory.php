@@ -23,4 +23,12 @@ class UserLoginFactory extends Factory
             'when' => fake()->dateTimeBetween('-1 week', '+1 week'),
         ];
     }
+
+    /**
+     * Sets user login's when field.
+     */
+    public function whenField(string $when): Factory
+    {
+        return $this->state(fn () => ['when' => $when]);
+    }
 }

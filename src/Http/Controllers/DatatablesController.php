@@ -3,16 +3,15 @@
 namespace GPapakitsos\LaravelDatatables\Http\Controllers;
 
 use GPapakitsos\LaravelDatatables\Datatables;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 
 class DatatablesController extends Controller
 {
-    public function __construct(protected Request $request) {}
-
-    public function getData(): \Illuminate\Http\JsonResponse
+    public function getData(Request $request): JsonResponse
     {
-        $Datatable = new Datatables($this->request, $this->request->model ?? '');
+        $Datatable = new Datatables($request, $request->model ?? '');
 
         return $Datatable->response();
     }

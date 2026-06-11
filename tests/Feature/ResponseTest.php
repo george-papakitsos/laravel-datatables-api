@@ -2,6 +2,7 @@
 
 namespace GPapakitsos\LaravelDatatables\Tests\Feature;
 
+use DateTime;
 use GPapakitsos\LaravelDatatables\Tests\FeatureTestCase;
 use GPapakitsos\LaravelDatatables\Tests\Models;
 use Illuminate\Support\Arr;
@@ -275,6 +276,29 @@ class ResponseTest extends FeatureTestCase
             $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
             $response->assertStatus(200);
             $this->assertEquals($this->user->id, $response->getData(true)['data'][0]['id']);
+        }
+    }
+
+    public function test_search_by_has_one_date_column()
+    {
+        $when_datetime = $this->userLogin->when;
+        $when_date = (new DateTime($when_datetime))->format($this->date_format);
+        $searchTerms = [$when_datetime, $when_date.$this->date_delimiter, $when_date.$this->date_delimiter.$when_date, $this->date_delimiter];
+        $searchTermsLastKey = array_key_last($searchTerms);
+
+        foreach ($searchTerms as $searchTermKey => $searchTerm) {
+            $request_data = $this->getRequestDataSample();
+            $request_data['columns'][9]['search']['value'] = $searchTerm;
+            $query_string = http_build_query($request_data);
+
+            $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
+            $response->assertStatus(200);
+            if ($searchTermKey !== $searchTermsLastKey) {
+                $this->assertEquals($this->user->id, $response->getData(true)['data'][0]['id']);
+            } else {
+                $responseData = $response->getData(true);
+                $this->assertEquals($responseData['recordsTotal'], $responseData['recordsFiltered']);
+            }
         }
     }
 
