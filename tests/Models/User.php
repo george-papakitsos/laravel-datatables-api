@@ -3,8 +3,14 @@
 namespace GPapakitsos\LaravelDatatables\Tests\Models;
 
 use Database\Factories\UserFactory;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class User extends Model
 {
@@ -12,10 +18,8 @@ class User extends Model
 
     /**
      * Create a new factory instance for the model.
-     *
-     * @return \Illuminate\Database\Eloquent\Factories\Factory
      */
-    protected static function newFactory()
+    protected static function newFactory(): Factory
     {
         return UserFactory::new();
     }
@@ -23,42 +27,57 @@ class User extends Model
     /**
      * Relationships
      */
-    public function country()
+    public function country(): BelongsTo
     {
         return $this->belongsTo(Locations\Country::class);
     }
 
-    public function userLogins()
+    public function countryContinent(): BelongsTo
+    {
+        return $this->country();
+    }
+
+    public function userLogins(): HasMany
     {
         return $this->hasMany(UserLogin::class);
     }
 
-    public function userNameAndEmail()
+    public function userNameAndEmail(): HasOne
     {
         return $this->hasOne(User::class, 'id', 'id');
     }
 
-    public function latestUserLogins()
+    public function latestUserLogins(): HasOne
     {
         return $this->userLogins()->one()->ofMany('when', 'max');
+    }
+
+    public function taggable(): MorphTo
+    {
+        return $this->morphTo();
     }
 
     /**
      * Scopes
      */
-    public function scopeSearch($query, $term)
+    public function scopeSearch(Builder $query, string $term): void
     {
-        $query->where('name', 'LIKE', '%'.$term.'%')->orWhere('email', 'LIKE', '%'.$term.'%');
+        $query->whereAny(['name', 'email'], 'LIKE', '%'.$term.'%');
     }
 
-    public function scopeTest($query)
+    public function scopeTest(Builder $query): void
     {
         $query->where('id', 1);
     }
 
-    public function scopeByEmail($query, $value)
+    public function scopeByEmail(Builder $query, string $value): void
     {
         $query->where('email', $value);
+    }
+
+    public function scopeByNameAndEmail(Builder $query, string $name, string $email): void
+    {
+        $query->where('name', $name)->where('email', $email);
     }
 
     /**
@@ -77,6 +96,8 @@ class User extends Model
             'settings' => $this->settings,
             'userNameAndEmail' => $this->name.' '.$this->email,
             'latestUserLogins' => $this->latestUserLogins?->when,
+            'countryContinent' => $this->country->continent->name ?? null,
+            'taggable' => $this->taggable->name ?? null,
         ];
     }
 
@@ -85,11 +106,18 @@ class User extends Model
      */
     public function getRelationFields(): array
     {
+        $filtersConfig = config('datatables.filters');
+
         return [
-            'country' => ['name', implode(config('datatables.filters.date_field_prefix')).'d/m/Y##founded_at'],
+            'country' => ['name', implode($filtersConfig['date_field_prefix']).$filtersConfig['date_format'].$filtersConfig['date_field_prefix']['delimiter'].'founded_at'],
             'userLogins' => [],
             'userNameAndEmail' => ['name', 'email'],
             'latestUserLogins' => ['when'],
+            'countryContinent' => [['continent', 'name']],
+            'taggable' => [
+                ['models' => [Locations\Country::class], 'fields' => ['name']],
+                ['models' => [Locations\Continent::class], 'fields' => ['name', 'abbreviation']],
+            ],
         ];
     }
 }

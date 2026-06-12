@@ -8,12 +8,14 @@ use Orchestra\Testbench\TestCase;
 
 class FeatureTestCase extends TestCase
 {
-    public string $route_prefix;
-    public string $date_delimiter;
-    public string $date_format;
+    public Models\Locations\Continent $continent;
     public Models\Locations\Country $country;
     public Models\User $user;
     public Models\UserLogin $userLogin;
+    public string $route_prefix;
+    public string $date_delimiter;
+    public string $date_format;
+    public string $null_delimiter;
 
     protected function setUp(): void
     {
@@ -23,13 +25,17 @@ class FeatureTestCase extends TestCase
 
         Models\User::factory()->has(Models\UserLogin::factory()->count(rand(1, 5)))->count(49)->create();
         Models\Locations\Country::factory()->count(29)->create();
-        $this->country = Models\Locations\Country::factory()->founded('1995-06-15')->create();
+
+        $this->continent = Models\Locations\Continent::create(['name' => 'South America', 'abbreviation' => 'SA']);
+        $this->country = Models\Locations\Country::factory()->founded('1995-06-15')->for($this->continent)->create();
         $this->user = Models\User::factory()->has(Models\UserLogin::factory()->count(rand(10, 20)))->create([
             'name' => 'George Papakitsos',
             'email' => 'papakitsos_george@yahoo.gr',
             'country_id' => $this->country->id,
             'settings' => '{ "is_admin": true, "nickname": "papaki" }',
             'created_at' => '1981-04-23 10:00:00',
+            'taggable_type' => $this->continent::class,
+            'taggable_id' => $this->continent->id,
         ]);
         $this->userLogin = Models\UserLogin::factory()->whenField(Carbon::now()->addMonth()->toDateTimeString())->for($this->user)->create();
     }
@@ -48,6 +54,7 @@ class FeatureTestCase extends TestCase
         $this->route_prefix = $app['config']->get('datatables.routes.prefix');
         $this->date_delimiter = $app['config']->get('datatables.filters.date_delimiter');
         $this->date_format = $app['config']->get('datatables.filters.date_format');
+        $this->null_delimiter = $app['config']->get('datatables.filters.null_delimiter');
     }
 
     protected function getRequestDataSample(string $model = Models\User::class): array
@@ -119,6 +126,18 @@ class FeatureTestCase extends TestCase
                             'value' => '',
                         ],
                     ],
+                    [
+                        'data' => 'countryContinent',
+                        'search' => [
+                            'value' => '',
+                        ],
+                    ],
+                    [
+                        'data' => 'taggable',
+                        'search' => [
+                            'value' => '',
+                        ],
+                    ],
                 ],
                 Models\Locations\Country::class => [
                     [
@@ -129,6 +148,12 @@ class FeatureTestCase extends TestCase
                     ],
                     [
                         'data' => 'founded_at',
+                        'search' => [
+                            'value' => '',
+                        ],
+                    ],
+                    [
+                        'data' => 'continent',
                         'search' => [
                             'value' => '',
                         ],

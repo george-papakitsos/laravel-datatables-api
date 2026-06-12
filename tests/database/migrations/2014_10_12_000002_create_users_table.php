@@ -18,6 +18,7 @@ return new class extends Migration
             $table->string('password');
             $table->unsignedBigInteger('country_id')->nullable();
             $table->json('settings')->nullable();
+            $table->nullableMorphs('taggable');
             $table->timestamps();
 
             $table->foreign('country_id')->references('id')->on('countries');
