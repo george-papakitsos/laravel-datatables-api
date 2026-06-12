@@ -26,14 +26,10 @@ class CountryFactory extends Factory
     }
 
     /**
-     * Indicate that the user is suspended.
+     * Sets country's founded_at field.
      */
     public function founded(string $founded_at): Factory
     {
-        return $this->state(function (array $attributes) use ($founded_at) {
-            return [
-                'founded_at' => $founded_at,
-            ];
-        });
+        return $this->state(fn () => ['founded_at' => $founded_at]);
     }
 }

@@ -10,7 +10,16 @@
 namespace GPapakitsos\LaravelDatatables;
 
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -29,20 +38,23 @@ class Datatables
 
     /**
      * The Eloquent model
-     *
-     * @var \Illuminate\Database\Eloquent\Model
      */
-    protected $model;
+    protected Model $model;
 
     /**
      * The query builder instance
      */
-    protected \Illuminate\Database\Eloquent\Builder $queryBuilder;
+    protected Builder $queryBuilder;
 
     /**
      * Holds the relation fields of model
      */
-    protected array $relations;
+    protected array $relations = [];
+
+    /**
+     * Holds the filters configuration
+     */
+    protected array $filtersConfig;
 
     /**
      * Count of all model's records
@@ -78,15 +90,19 @@ class Datatables
 
         $this->queryBuilder = $this->model->query();
 
-        $this->relations = method_exists($this->model, 'getRelationFields') ? $this->model->getRelationFields() : [];
+        if (method_exists($this->model, 'getRelationFields')) {
+            $this->relations = $this->model->getRelationFields();
+        }
 
         $this->driver = $this->queryBuilder->getConnection()->getDriverName();
+
+        $this->filtersConfig = config('datatables.filters');
     }
 
     /**
      * Builds the JSON response
      */
-    public function response(): \Illuminate\Http\JsonResponse
+    public function response(): JsonResponse
     {
         if (! empty($this->options['scope'])) {
             $this->applyScope();
@@ -126,11 +142,11 @@ class Datatables
             $scope = $scopeOpt[0];
             if (method_exists($this->model, 'scope'.ucwords($scope))) {
                 $args = array_slice($scopeOpt, 1);
-                $this->queryBuilder->$scope(...$args);
+                $this->queryBuilder->{$scope}(...$args);
             }
         } else {
             if (method_exists($this->model, 'scope'.ucwords($scopeOpt))) {
-                $this->queryBuilder->$scopeOpt();
+                $this->queryBuilder->{$scopeOpt}();
             }
         }
     }
@@ -141,9 +157,11 @@ class Datatables
     private function applyExtraWhere(): void
     {
         foreach ($this->options['extraWhere'] as $field => $value) {
-            is_array($value)
-                ? $this->queryBuilder->whereIn($field, $value)
-                : $this->queryBuilder->where($field, (Str::startsWith($value, '%') || Str::endsWith($value, '%') ? 'LIKE' : '='), $value);
+            $this->queryBuilder->when(
+                is_array($value),
+                fn (Builder $query) => $query->whereIn($field, $value),
+                fn (Builder $query) => $query->where($field, (Str::startsWith($value, '%') || Str::endsWith($value, '%') ? 'LIKE' : '='), $value)
+            );
         }
     }
 
@@ -152,55 +170,72 @@ class Datatables
      */
     private function sortByColumn(): void
     {
-        $field = $this->options['columns'][$this->options['order'][0]['column']]['data'] ?? null;
-        if ($field === null) {
+        if (empty($field = $this->options['columns'][$this->options['order'][0]['column']]['data'] ?? null)) {
             return;
         }
+
         $direction = $this->options['order'][0]['dir'] ?? 'asc';
 
-        if (! isset($this->relations[$field])) { // if field exists on model
+        // field exists on model
+        if (! isset($this->relations[$field])) {
             $this->queryBuilder->orderBy($field, $direction);
-        } else { // if field is relation of model
-            $relation = $this->model->$field();
-            $table = $this->model->getTable();
-            $otherTable = $relation->getRelated()->getTable();
 
-            if ($relation instanceof \Illuminate\Database\Eloquent\Relations\BelongsTo) {
-                $this->queryBuilder
-                    ->leftJoin($otherTable, $relation->getQualifiedForeignKeyName(), '=', $relation->getQualifiedOwnerKeyName())
-                    ->select($table.'.*');
-                foreach ($this->relations[$field] as $otherField) {
-                    if (is_string($otherField)) {
-                        if (Str::startsWith($otherField, implode(config('datatables.filters.date_field_prefix')))) {
-                            $otherField = Str::afterLast($otherField, config('datatables.filters.date_field_prefix.delimiter'));
-                            $this->queryBuilder->orderBy($otherTable.'.'.$otherField, $direction);
-                        } else {
-                            $this->queryBuilder->orderBy($otherTable.'.'.$otherField, $direction);
-                        }
-                    } else {
-                        $relationThrough = $relation->getRelated()->{$otherField[0]}();
-                        $relationThroughOtherTable = $relationThrough->getRelated()->getTable();
+            return;
+        }
 
-                        $this->queryBuilder
-                            ->leftJoin($relationThroughOtherTable, $relationThrough->getQualifiedForeignKeyName(), '=', $relationThrough->getQualifiedOwnerKeyName())
-                            ->orderBy($relationThroughOtherTable.'.'.$otherField[1], $direction);
+        // field is relation of model
+        $relation = $this->model->{$field}();
+        $table = $this->model->getTable();
+        $otherTable = $relation->getRelated()->getTable();
+
+        if ($relation instanceof BelongsTo) {
+            $this->queryBuilder
+                ->leftJoin($otherTable, $relation->getQualifiedForeignKeyName(), '=', $relation->getQualifiedOwnerKeyName())
+                ->select($table.'.*');
+
+            foreach ($this->relations[$field] as $otherField) {
+                if (is_string($otherField)) {
+                    if ($this->isDateFieldWithPrefix($otherField)) {
+                        $otherField = Str::afterLast($otherField, $this->filtersConfig['date_field_prefix']['delimiter']);
                     }
-                }
-            } elseif ($relation instanceof \Illuminate\Database\Eloquent\Relations\BelongsToMany) {
-                $this->queryBuilder
-                    ->leftJoin($relation->getTable(), $relation->getQualifiedForeignPivotKeyName(), '=', $relation->getQualifiedParentKeyName())
-                    ->leftJoin($relation->getRelated()->getTable(), $relation->getQualifiedRelatedPivotKeyName(), '=', $relation->getRelated()->getTable().'.'.$relation->getRelated()->getKeyName())
-                    ->select($table.'.*')
-                    ->distinct();
-                foreach ($this->relations[$field] as $otherField) {
                     $this->queryBuilder->orderBy($otherTable.'.'.$otherField, $direction);
+                } else {
+                    $relationThrough = $relation->getRelated()->{$otherField[0]}();
+                    $relationThroughOtherTable = $relationThrough->getRelated()->getTable();
+
+                    $this->queryBuilder
+                        ->leftJoin($relationThroughOtherTable, $relationThrough->getQualifiedForeignKeyName(), '=', $relationThrough->getQualifiedOwnerKeyName())
+                        ->orderBy($relationThroughOtherTable.'.'.$otherField[1], $direction);
                 }
-            } elseif ($relation instanceof \Illuminate\Database\Eloquent\Relations\HasMany) {
-                $this->queryBuilder->orderBy(DB::raw('(SELECT COUNT(*) FROM `'.$otherTable.'` WHERE '.$relation->getQualifiedForeignKeyName().' = '.$relation->getQualifiedParentKeyName().')'), $direction);
-            } elseif ($relation instanceof \Illuminate\Database\Eloquent\Relations\HasOne) {
-                foreach ($this->relations[$field] as $otherField) {
-                    $this->queryBuilder->orderBy($otherTable.'.'.$otherField, $direction);
-                }
+            }
+
+            return;
+        }
+
+        if ($relation instanceof BelongsToMany) {
+            $this->queryBuilder
+                ->leftJoin($relation->getTable(), $relation->getQualifiedForeignPivotKeyName(), '=', $relation->getQualifiedParentKeyName())
+                ->leftJoin($otherTable, $relation->getQualifiedRelatedPivotKeyName(), '=', $otherTable.'.'.$relation->getRelated()->getKeyName())
+                ->select($table.'.*')
+                ->distinct();
+
+            foreach ($this->relations[$field] as $otherField) {
+                $this->queryBuilder->orderBy($otherTable.'.'.$otherField, $direction);
+            }
+
+            return;
+        }
+
+        if ($relation instanceof HasMany) {
+            $this->queryBuilder
+                ->orderBy(DB::raw('(SELECT COUNT(*) FROM `'.$otherTable.'` WHERE '.$relation->getQualifiedForeignKeyName().' = '.$relation->getQualifiedParentKeyName().')'), $direction);
+
+            return;
+        }
+
+        if ($relation instanceof HasOne) {
+            foreach ($this->relations[$field] as $otherField) {
+                $this->queryBuilder->orderBy($otherTable.'.'.$otherField, $direction);
             }
         }
     }
@@ -210,7 +245,7 @@ class Datatables
      */
     private function search(): bool
     {
-        if (empty($this->options['search']['value'])) {
+        if (empty($terms = array_filter(array_map('trim', explode(' ', $this->options['search']['value']))))) {
             return false;
         }
 
@@ -218,130 +253,196 @@ class Datatables
             abort(400, 'Method scopeSearch is not set in '.get_class($this->model));
         }
 
-        $terms = explode(' ', trim($this->options['search']['value']));
-
         foreach ($terms as $term) {
-            $term = trim($term);
-            if (! empty($term)) {
-                $this->queryBuilder->where(function ($query) use ($term) {
-                    $query->search($term);
-                });
-            }
+            $this->queryBuilder->where(fn ($query) => $query->search($term));
         }
 
         return true;
     }
 
     /**
-     * Applies datatables global search
+     * Applies search by column
      */
     private function searchByColumn(): bool
     {
         $table = $this->model->getTable();
-        $filtersConfig = config('datatables.filters');
         $result = false;
 
         foreach ($this->options['columns'] as $col) {
-            $searchValue = $col['search']['value'];
-            if (! empty($searchValue) || $searchValue === '0') {
-                $result = true;
+            $searchValue = trim($col['search']['value']);
+            if ((empty($searchValue) && $searchValue !== '0') || (! empty($searchValue) && $searchValue === $this->filtersConfig['date_delimiter'])) {
+                continue;
+            }
 
-                $field = $col['data'];
-                $this->queryBuilder->where(function ($query) use ($table, $field, $searchValue, $filtersConfig) {
-                    if (! isset($this->relations[$field])) { // if field exists on model
-                        if (Str::contains($searchValue, $filtersConfig['date_delimiter'])) {
-                            $dates = explode($filtersConfig['date_delimiter'], $searchValue);
-                            if (! empty($dates[0])) {
-                                $query->whereRaw(DB::raw("DATE(`$table`.`$field`) >= '".Carbon::createFromFormat($filtersConfig['date_format'], $dates[0])->toDateString()."'"));
-                            }
-                            if (! empty($dates[1])) {
-                                $query->whereRaw(DB::raw("DATE(`$table`.`$field`) <= '".Carbon::createFromFormat($filtersConfig['date_format'], $dates[1])->toDateString()."'"));
-                            }
-                        } elseif (Str::contains($searchValue, $filtersConfig['null_delimiter'])) {
-                            $query->where($table.'.'.$field, '')->orWhereNull($table.'.'.$field);
-                        } elseif (Str::startsWith($searchValue, '|') && Str::endsWith($searchValue, '|')) {
-                            $query->where($table.'.'.$field, trim($searchValue, '|'));
-                        } elseif (Schema::hasTable($table) && Schema::getColumnType($table, $field) == 'json') {
-                            $query->whereRaw('LOWER(JSON_EXTRACT('.$table.'.'.$field.', "$.*")) LIKE ?', ['%'.strtolower($searchValue).'%']);
-                        } else {
-                            $query->where($table.'.'.$field, 'LIKE', '%'.$searchValue.'%');
-                        }
-                    } else { // if field is relation of model
-                        $relation = $this->model->$field();
-                        $otherTable = $relation->getRelated()->getTable();
-                        if (! $relation instanceof \Illuminate\Database\Eloquent\Relations\MorphTo) {
-                            if (Str::contains($searchValue, $filtersConfig['null_delimiter'])) {
-                                $query->whereDoesntHave($field);
-                            } else {
-                                $query->whereHas($field, function ($query) use ($field, $searchValue, $otherTable, $filtersConfig) {
-                                    $query->where(function ($query) use ($field, $searchValue, $otherTable, $filtersConfig) {
-                                        foreach ($this->relations[$field] as $otherField) {
-                                            if (is_string($otherField)) {
-                                                if (Str::contains($searchValue, $filtersConfig['date_delimiter'])) {
-                                                    $dates = explode($filtersConfig['date_delimiter'], $searchValue);
-                                                    if (! empty($dates[0])) {
-                                                        $query->whereRaw(DB::raw("DATE(`$otherTable`.`$otherField`) >= '".Carbon::createFromFormat($filtersConfig['date_format'], $dates[0])->toDateString()."'"));
-                                                    }
-                                                    if (! empty($dates[1])) {
-                                                        $query->whereRaw(DB::raw("DATE(`$otherTable`.`$otherField`) <= '".Carbon::createFromFormat($filtersConfig['date_format'], $dates[1])->toDateString()."'"));
-                                                    }
-                                                } elseif (Str::startsWith($searchValue, '|') && Str::endsWith($searchValue, '|')) {
-                                                    $query->orWhere($otherTable.'.'.$otherField, trim($searchValue, '|'));
-                                                } elseif (Str::startsWith($otherField, implode($filtersConfig['date_field_prefix']))) {
-                                                    $date_field_prefix_array = explode($filtersConfig['date_field_prefix']['delimiter'], $otherField);
-                                                    if (count($date_field_prefix_array) !== 3) {
-                                                        continue;
-                                                    }
+            $result = true;
+            $field = $col['data'];
 
-                                                    $dateFormat = strtr($date_field_prefix_array[1], [
-                                                        'd' => '%d', 'j' => '%e', 'm' => '%m', 'Y' => '%Y', 'y' => '%y',
-                                                    ]);
-                                                    if (empty($dateFormat)) {
-                                                        continue;
-                                                    }
+            $this->queryBuilder->where(function ($query) use ($table, $field, $searchValue) {
+                // field exists on model
+                if (! isset($this->relations[$field])) {
+                    if (! empty($searchType = $this->columnSearchType($searchValue))) {
+                        $this->applyColumnSearch($searchType, $query, $table, $field, $searchValue);
+                    } elseif (Schema::hasTable($table) && Schema::getColumnType($table, $field) == 'json') {
+                        $query->where(DB::raw('LOWER(JSON_EXTRACT('.$table.'.'.$field.', "$.*"))'), 'LIKE', '%'.strtolower($searchValue).'%');
+                    } else {
+                        $query->where($table.'.'.$field, 'LIKE', '%'.$searchValue.'%');
+                    }
 
-                                                    $otherField = $date_field_prefix_array[2];
-                                                    $dateExpr = $this->driver === 'sqlite'
-                                                        ? "strftime('".$dateFormat."', `$otherTable`.`$otherField`)"
-                                                        : "DATE_FORMAT(`$otherTable`.`$otherField`, '".$dateFormat."')";
-                                                    $query->orWhere(DB::raw($dateExpr), 'LIKE', '%'.$searchValue.'%');
-                                                } else {
-                                                    $query->orWhere($otherTable.'.'.$otherField, 'LIKE', '%'.$searchValue.'%');
-                                                }
-                                            } else {
-                                                $query->whereHas($otherField[0], function ($query) use ($otherField, $searchValue) {
-                                                    if (is_string($otherField[1])) {
-                                                        $query->where($otherField[1], 'LIKE', '%'.$searchValue.'%');
-                                                    } elseif (is_array($otherField[1])) {
-                                                        $query->where(function ($query) use ($otherField, $searchValue) {
-                                                            foreach ($otherField[1] as $otherFieldItem) {
-                                                                $query->orWhere($otherFieldItem, 'LIKE', '%'.$searchValue.'%');
-                                                            }
-                                                        });
-                                                    }
-                                                });
-                                            }
-                                        }
-                                    });
+                    return;
+                }
+
+                // field is relation of model
+                $relation = $this->model->{$field}();
+                $otherTable = $relation->getRelated()->getTable();
+                $terms = array_filter(array_map('trim', explode(' ', $searchValue)));
+
+                if ($relation instanceof MorphTo) {
+                    if (! empty($terms)) {
+                        $query->where(function ($query) use ($field, $terms) {
+                            foreach ($this->relations[$field] as $otherField) {
+                                $query->orWhereHasMorph($field, $otherField['models'], function ($query) use ($otherField, $terms) {
+                                    foreach ($terms as $term) {
+                                        $query->whereAny($otherField['fields'], 'LIKE', '%'.$term.'%');
+                                    }
                                 });
                             }
-                        } else {
-                            $query->where(function ($query) use ($field, $searchValue) {
-                                foreach ($this->relations[$field] as $otherField) {
-                                    $query->orWhereHasMorph($field, $otherField['models'], function ($query, $type) use ($otherField, $searchValue) {
-                                        foreach ($otherField['fields'] as $morphFieldKey => $morphField) {
-                                            $query->{$morphFieldKey == 0 ? 'where' : 'orWhere'}($morphField, 'LIKE', '%'.$searchValue.'%');
+                        });
+                    }
+
+                    return;
+                }
+
+                if (Str::contains($searchValue, $this->filtersConfig['null_delimiter'])) {
+                    $query->whereDoesntHave($field);
+
+                    return;
+                }
+
+                $query->whereHas($field, function ($query) use ($field, $searchValue, $otherTable, $terms) {
+                    $query->where(function ($query) use ($field, $searchValue, $otherTable, $terms) {
+                        foreach ($this->relations[$field] as $otherField) {
+                            if (is_string($otherField)) {
+                                if (! empty($searchType = $this->columnSearchType($searchValue))) {
+                                    $this->applyColumnSearch($searchType, $query, $otherTable, $otherField, $searchValue);
+
+                                    continue;
+                                }
+
+                                if ($this->isDateFieldWithPrefix($otherField)) {
+                                    $date_field_prefix_array = explode($this->filtersConfig['date_field_prefix']['delimiter'], $otherField);
+                                    if (count($date_field_prefix_array) !== 3) {
+                                        continue;
+                                    }
+
+                                    $dateFormat = strtr($date_field_prefix_array[1], [
+                                        'd' => '%d', 'j' => '%e', 'm' => '%m', 'Y' => '%Y', 'y' => '%y',
+                                    ]);
+                                    if (empty($dateFormat)) {
+                                        continue;
+                                    }
+
+                                    $otherField = $date_field_prefix_array[2];
+                                    $dateExpr = $this->driver === 'sqlite'
+                                        ? "strftime('".$dateFormat."', `$otherTable`.`$otherField`)"
+                                        : 'DATE_FORMAT(`'.$otherTable.'`.`'.$otherField.'`, "'.$dateFormat.'")';
+                                    $query->orWhere(DB::raw($dateExpr), 'LIKE', '%'.$searchValue.'%');
+
+                                    continue;
+                                }
+
+                                if ($this->isColumnSearchWithMultipleTerms($this->relations[$field], $terms)) {
+                                    foreach ($terms as $term) {
+                                        $query->whereAny($this->relations[$field], 'LIKE', '%'.$term.'%');
+                                    }
+
+                                    return;
+                                }
+
+                                $query->orWhere($otherTable.'.'.$otherField, 'LIKE', '%'.$searchValue.'%');
+
+                                continue;
+                            }
+
+                            $query->whereHas($otherField[0], function ($query) use ($otherField, $searchValue, $terms) {
+                                $query->when(is_string($otherField[1]), fn ($query) => $query->where($otherField[1], 'LIKE', '%'.$searchValue.'%'));
+
+                                if (is_array($otherField[1])) {
+                                    if ($this->isColumnSearchWithMultipleTerms($otherField[1], $terms)) {
+                                        foreach ($terms as $term) {
+                                            $query->whereAny($otherField[1], 'LIKE', '%'.$term.'%');
                                         }
-                                    });
+
+                                        return;
+                                    }
+
+                                    $query->whereAny($otherField[1], 'LIKE', '%'.$searchValue.'%');
                                 }
                             });
                         }
-                    }
+                    });
                 });
-            }
+            });
         }
 
         return $result;
+    }
+
+    /**
+     * Resolves the type of search for the given value in a column
+     */
+    private function columnSearchType(string $searchValue): ?string
+    {
+        if (Str::contains($searchValue, $this->filtersConfig['date_delimiter'])) {
+            return 'date';
+        }
+        if (Str::contains($searchValue, $this->filtersConfig['null_delimiter'])) {
+            return 'empty';
+        }
+        if (Str::startsWith($searchValue, '|') && Str::endsWith($searchValue, '|')) {
+            return 'exact';
+        }
+
+        return null;
+    }
+
+    /**
+     * Applies the column search based on the given type
+     */
+    private function applyColumnSearch(string $searchType, Builder $query, string $table, string $field, string $searchValue): self
+    {
+        if ($searchType === 'date' && count($dates = explode($this->filtersConfig['date_delimiter'], $searchValue)) > 0) {
+            foreach ([['date' => $dates[0] ?? null, 'operator' => '>='], ['date' => $dates[1] ?? null, 'operator' => '<=']] as $whereData) {
+                if (! empty($whereData['date'])) {
+                    $query->where(DB::raw('DATE(`'.$table.'`.`'.$field.'`)'), $whereData['operator'], Carbon::createFromFormat($this->filtersConfig['date_format'], $whereData['date'])->toDateString());
+                }
+            }
+        }
+
+        if ($searchType === 'empty') {
+            $query->where(fn ($query) => $query->where($table.'.'.$field, '')->orWhereNull($table.'.'.$field));
+        }
+
+        if ($searchType === 'exact') {
+            $query->where($table.'.'.$field, trim($searchValue, '|'));
+        }
+
+        return $this;
+    }
+
+    /**
+     * Checks if the given field is a date field with a prefix
+     */
+    private function isDateFieldWithPrefix(string $field): bool
+    {
+        return Str::startsWith($field, implode($this->filtersConfig['date_field_prefix']));
+    }
+
+    /**
+     * Checks if search with multiple terms should be applied
+     */
+    private function isColumnSearchWithMultipleTerms(array $fields, array $terms): bool
+    {
+        return count($terms) > 1 && count($fields) === count(Arr::where($fields, fn (string $field) => ! $this->isDateFieldWithPrefix($field)));
     }
 
     /**
@@ -351,19 +452,16 @@ class Datatables
     {
         $take = (int) $this->options['length'];
         if ($take !== -1) {
-            $this->queryBuilder->take($take);
-            if (isset($this->options['start'])) {
-                $this->queryBuilder->skip((int) $this->options['start']);
-            }
+            $this->queryBuilder
+                ->take($take)
+                ->when(isset($this->options['start']), fn ($query) => $query->skip((int) $this->options['start']));
         }
 
         return [
             'draw' => (int) ($this->options['draw'] ?? 1),
             'recordsTotal' => $this->totalCount,
             'recordsFiltered' => $this->filteredCount,
-            'data' => $this->queryBuilder->get()->map(function ($model) {
-                return $model->getDatatablesData();
-            }),
+            'data' => $this->queryBuilder->get()->map(fn ($item) => $item->getDatatablesData()),
         ];
     }
 }

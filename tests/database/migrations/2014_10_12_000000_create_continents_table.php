@@ -11,12 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('user_logins', function (Blueprint $table) {
+        Schema::create('continents', function (Blueprint $table) {
             $table->id('id');
-            $table->unsignedBigInteger('user_id');
-            $table->timestamp('when');
-
-            $table->foreign('user_id')->references('id')->on('users')->cascadeOnDelete();
+            $table->string('name');
+            $table->string('abbreviation', 10)->nullable();
         });
     }
 
@@ -25,6 +23,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('users');
+        Schema::dropIfExists('continents');
     }
 };
