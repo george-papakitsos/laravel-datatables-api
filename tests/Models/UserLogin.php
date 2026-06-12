@@ -3,8 +3,10 @@
 namespace GPapakitsos\LaravelDatatables\Tests\Models;
 
 use Database\Factories\UserLoginFactory;
+use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class UserLogin extends Model
 {
@@ -14,10 +16,8 @@ class UserLogin extends Model
 
     /**
      * Create a new factory instance for the model.
-     *
-     * @return \Illuminate\Database\Eloquent\Factories\Factory
      */
-    protected static function newFactory()
+    protected static function newFactory(): Factory
     {
         return UserLoginFactory::new();
     }
@@ -25,7 +25,7 @@ class UserLogin extends Model
     /**
      * Relationships
      */
-    public function user()
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }

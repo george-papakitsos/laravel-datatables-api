@@ -2,6 +2,7 @@
 
 namespace GPapakitsos\LaravelDatatables\Tests\Feature;
 
+use DateTime;
 use GPapakitsos\LaravelDatatables\Tests\FeatureTestCase;
 use GPapakitsos\LaravelDatatables\Tests\Models;
 use Illuminate\Support\Arr;
@@ -105,7 +106,7 @@ class ResponseTest extends FeatureTestCase
         $response->assertJsonCount($request_data['length'], 'data');
     }
 
-    public function test_scope()
+    public function test_scope_without_params()
     {
         $request_data = $this->getRequestDataSample();
         $request_data['scope'] = 'test';
@@ -116,10 +117,21 @@ class ResponseTest extends FeatureTestCase
         $response->assertJsonCount(1, 'data');
     }
 
-    public function test_scope_array()
+    public function test_scope_with_one_param()
     {
         $request_data = $this->getRequestDataSample();
-        $request_data['scope'] = ['byEmail', 'papakitsos_george@yahoo.gr'];
+        $request_data['scope'] = ['byEmail', $this->user->email];
+        $query_string = http_build_query($request_data);
+
+        $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
+        $response->assertStatus(200);
+        $response->assertJsonCount(1, 'data');
+    }
+
+    public function test_scope_with_multiple_params()
+    {
+        $request_data = $this->getRequestDataSample();
+        $request_data['scope'] = ['byNameAndEmail', $this->user->name, $this->user->email];
         $query_string = http_build_query($request_data);
 
         $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
@@ -200,7 +212,7 @@ class ResponseTest extends FeatureTestCase
     public function test_search()
     {
         $request_data = $this->getRequestDataSample();
-        $request_data['search']['value'] = 'Papakitsos';
+        $request_data['search']['value'] = $this->user->name;
         $query_string = http_build_query($request_data);
 
         $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
@@ -210,24 +222,37 @@ class ResponseTest extends FeatureTestCase
 
     public function test_search_by_column()
     {
-        $request_data = $this->getRequestDataSample();
-        $request_data['columns'][2]['search']['value'] = 'papakitsos_george@yahoo.gr';
-        $query_string = http_build_query($request_data);
+        foreach ([$this->user->email, '|'.$this->user->email.'|'] as $searchTerm) {
+            $request_data = $this->getRequestDataSample();
+            $request_data['columns'][2]['search']['value'] = $searchTerm;
+            $query_string = http_build_query($request_data);
 
-        $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
-        $response->assertStatus(200);
-        $response->assertJsonCount(1, 'data');
+            $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
+            $response->assertStatus(200);
+            $response->assertJsonCount(1, 'data');
+        }
     }
 
     public function test_search_by_column_date()
     {
-        $request_data = $this->getRequestDataSample();
-        $request_data['columns'][3]['search']['value'] = '23/04/1981'.config('datatables.filters.date_delimiter').'23/04/1981';
-        $query_string = http_build_query($request_data);
+        $created_at = $this->user->created_at->format($this->date_format);
+        $searchTerms = [$this->user->created_at->toDateTimeString(), $this->date_delimiter.$created_at, $created_at.$this->date_delimiter.$created_at, $this->date_delimiter];
+        $searchTermsLastKey = array_key_last($searchTerms);
 
-        $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
-        $response->assertStatus(200);
-        $response->assertJsonCount(1, 'data');
+        foreach ($searchTerms as $searchTermKey => $searchTerm) {
+            $request_data = $this->getRequestDataSample();
+            $request_data['columns'][3]['search']['value'] = $searchTerm;
+            $query_string = http_build_query($request_data);
+
+            $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
+            $response->assertStatus(200);
+            if ($searchTermKey !== $searchTermsLastKey) {
+                $response->assertJsonCount(1, 'data');
+            } else {
+                $responseData = $response->getData(true);
+                $this->assertEquals($responseData['recordsTotal'], $responseData['recordsFiltered']);
+            }
+        }
     }
 
     public function test_search_by_column_json()
@@ -252,6 +277,17 @@ class ResponseTest extends FeatureTestCase
         $this->assertEquals($this->user->id, $response->getData(true)['data'][0]['id']);
     }
 
+    public function test_search_by_belongs_to_through_column()
+    {
+        $request_data = $this->getRequestDataSample();
+        $request_data['columns'][10]['search']['value'] = $this->continent->name;
+        $query_string = http_build_query($request_data);
+
+        $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
+        $response->assertStatus(200);
+        $this->assertEquals($this->user->id, $response->getData(true)['data'][0]['id']);
+    }
+
     public function test_search_by_belongs_to_date_column()
     {
         foreach (['15/06/1995', '15', '15/', '15/06', '15/06/'] as $searchValue) {
@@ -267,7 +303,7 @@ class ResponseTest extends FeatureTestCase
 
     public function test_search_by_has_one_column()
     {
-        foreach (['Papakitsos', 'papakitsos_george@yahoo.gr'] as $searchTerm) {
+        foreach ([$this->user->name, explode(' ', $this->user->name)[0], $this->user->email] as $searchTerm) {
             $request_data = $this->getRequestDataSample();
             $request_data['columns'][8]['search']['value'] = $searchTerm;
             $query_string = http_build_query($request_data);
@@ -278,10 +314,33 @@ class ResponseTest extends FeatureTestCase
         }
     }
 
+    public function test_search_by_has_one_date_column()
+    {
+        $when_datetime = $this->userLogin->when;
+        $when_date = (new DateTime($when_datetime))->format($this->date_format);
+        $searchTerms = [$when_datetime, $when_date.$this->date_delimiter, $when_date.$this->date_delimiter.$when_date, $this->date_delimiter];
+        $searchTermsLastKey = array_key_last($searchTerms);
+
+        foreach ($searchTerms as $searchTermKey => $searchTerm) {
+            $request_data = $this->getRequestDataSample();
+            $request_data['columns'][9]['search']['value'] = $searchTerm;
+            $query_string = http_build_query($request_data);
+
+            $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
+            $response->assertStatus(200);
+            if ($searchTermKey !== $searchTermsLastKey) {
+                $this->assertEquals($this->user->id, $response->getData(true)['data'][0]['id']);
+            } else {
+                $responseData = $response->getData(true);
+                $this->assertEquals($responseData['recordsTotal'], $responseData['recordsFiltered']);
+            }
+        }
+    }
+
     public function test_search_by_column_null()
     {
         $request_data = $this->getRequestDataSample();
-        $request_data['columns'][7]['search']['value'] = config('datatables.filters.null_delimiter');
+        $request_data['columns'][7]['search']['value'] = $this->null_delimiter;
         $query_string = http_build_query($request_data);
 
         $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
@@ -292,11 +351,39 @@ class ResponseTest extends FeatureTestCase
     public function test_search_by_relation_column_null()
     {
         $request_data = $this->getRequestDataSample();
-        $request_data['columns'][5]['search']['value'] = config('datatables.filters.null_delimiter');
+        $request_data['columns'][5]['search']['value'] = $this->null_delimiter;
         $query_string = http_build_query($request_data);
 
         $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
         $response->assertStatus(200);
         $this->assertEquals(Models\User::whereNull('country_id')->count(), $response->getData(true)['recordsFiltered']);
+    }
+
+    public function test_search_by_morph_to_column()
+    {
+        foreach ([$this->continent->name, $this->continent->abbreviation, $this->continent->name.' '.$this->continent->abbreviation] as $searchTerm) {
+            $request_data = $this->getRequestDataSample();
+            $request_data['columns'][11]['search']['value'] = $searchTerm;
+            $query_string = http_build_query($request_data);
+
+            $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
+            $response->assertStatus(200);
+            $this->assertEquals($this->user->id, $response->getData(true)['data'][0]['id']);
+        }
+    }
+
+    public function test_search_by_belongs_to_column_with_multiple_terms()
+    {
+        $searchTerms = [$this->continent->name, $this->continent->abbreviation, $this->continent->name.' '.$this->continent->abbreviation, mb_substr($this->continent->name, 0, 3).' '.$this->continent->abbreviation];
+
+        foreach ($searchTerms as $searchTerm) {
+            $request_data = $this->getRequestDataSample(Models\Locations\Country::class);
+            $request_data['columns'][3]['search']['value'] = $searchTerm;
+            $query_string = http_build_query($request_data);
+
+            $response = $this->get('/'.$this->route_prefix.'/'.urlencode('Locations\Country').'?'.$query_string);
+            $response->assertStatus(200);
+            $this->assertEquals($this->country->id, $response->getData(true)['data'][0]['id']);
+        }
     }
 }
