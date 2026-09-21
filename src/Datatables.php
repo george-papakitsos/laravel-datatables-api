@@ -42,6 +42,11 @@ class Datatables
     protected Model $model;
 
     /**
+     * The model's table
+     */
+    protected string $modelTable;
+
+    /**
      * The query builder instance
      */
     protected Builder $queryBuilder;
@@ -88,6 +93,7 @@ class Datatables
             abort(400, 'Method getDatatablesData is not set in '.get_class($this->model));
         }
 
+        $this->modelTable = $this->model->getTable();
         $this->queryBuilder = $this->model->query();
 
         if (method_exists($this->model, 'getRelationFields')) {
@@ -166,6 +172,16 @@ class Datatables
     }
 
     /**
+     * Checks if a column exists in the given table
+     */
+    private function columnExists(string $column, ?string $table = null): bool
+    {
+        $table ??= $this->modelTable;
+
+        return Schema::hasTable($table) && Schema::hasColumn($table, $column);
+    }
+
+    /**
      * Applies ORDER BY to the query builder
      */
     private function sortByColumn(): void
@@ -178,6 +194,10 @@ class Datatables
 
         // field exists on model
         if (! isset($this->relations[$field])) {
+            if (! $this->columnExists($field)) {
+                return;
+            }
+
             $this->queryBuilder->orderBy($field, $direction);
 
             return;
@@ -185,13 +205,12 @@ class Datatables
 
         // field is relation of model
         $relation = $this->model->{$field}();
-        $table = $this->model->getTable();
         $otherTable = $relation->getRelated()->getTable();
 
         if ($relation instanceof BelongsTo) {
             $this->queryBuilder
                 ->leftJoin($otherTable, $relation->getQualifiedForeignKeyName(), '=', $relation->getQualifiedOwnerKeyName())
-                ->select($table.'.*');
+                ->select($this->modelTable.'.*');
 
             foreach ($this->relations[$field] as $otherField) {
                 if (is_string($otherField)) {
@@ -216,7 +235,7 @@ class Datatables
             $this->queryBuilder
                 ->leftJoin($relation->getTable(), $relation->getQualifiedForeignPivotKeyName(), '=', $relation->getQualifiedParentKeyName())
                 ->leftJoin($otherTable, $relation->getQualifiedRelatedPivotKeyName(), '=', $otherTable.'.'.$relation->getRelated()->getKeyName())
-                ->select($table.'.*')
+                ->select($this->modelTable.'.*')
                 ->distinct();
 
             foreach ($this->relations[$field] as $otherField) {
@@ -265,7 +284,6 @@ class Datatables
      */
     private function searchByColumn(): bool
     {
-        $table = $this->model->getTable();
         $result = false;
 
         foreach ($this->options['columns'] as $col) {
@@ -277,15 +295,19 @@ class Datatables
             $result = true;
             $field = $col['data'];
 
-            $this->queryBuilder->where(function ($query) use ($table, $field, $searchValue) {
+            $this->queryBuilder->where(function ($query) use ($field, $searchValue) {
                 // field exists on model
                 if (! isset($this->relations[$field])) {
+                    if (! $this->columnExists($field)) {
+                        return;
+                    }
+
                     if (! empty($searchType = $this->columnSearchType($searchValue))) {
-                        $this->applyColumnSearch($searchType, $query, $table, $field, $searchValue);
-                    } elseif (Schema::hasTable($table) && Schema::getColumnType($table, $field) == 'json') {
-                        $query->where(DB::raw('LOWER(JSON_EXTRACT('.$table.'.'.$field.', "$.*"))'), 'LIKE', '%'.strtolower($searchValue).'%');
+                        $this->applyColumnSearch($searchType, $query, $this->modelTable, $field, $searchValue);
+                    } elseif (Schema::getColumnType($this->modelTable, $field) === 'json') {
+                        $query->where(DB::raw('LOWER(JSON_EXTRACT('.$this->modelTable.'.'.$field.', "$.*"))'), 'LIKE', '%'.strtolower($searchValue).'%');
                     } else {
-                        $query->where($table.'.'.$field, 'LIKE', '%'.$searchValue.'%');
+                        $query->where($this->modelTable.'.'.$field, 'LIKE', '%'.$searchValue.'%');
                     }
 
                     return;
