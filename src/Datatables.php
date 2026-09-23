@@ -194,11 +194,9 @@ class Datatables
 
         // field exists on model
         if (! isset($this->relations[$field])) {
-            if (! $this->columnExists($field)) {
-                return;
+            if ($this->columnExists($field)) {
+                $this->queryBuilder->orderBy($field, $direction);
             }
-
-            $this->queryBuilder->orderBy($field, $direction);
 
             return;
         }
@@ -264,7 +262,7 @@ class Datatables
      */
     private function search(): bool
     {
-        if (empty($terms = array_filter(array_map('trim', explode(' ', $this->options['search']['value']))))) {
+        if (! isset($this->options['search']['value']) || empty($terms = array_filter(array_map('trim', explode(' ', $this->options['search']['value']))))) {
             return false;
         }
 
@@ -287,6 +285,10 @@ class Datatables
         $result = false;
 
         foreach ($this->options['columns'] as $col) {
+            if (! isset($col['data'], $col['search']['value'])) {
+                continue;
+            }
+
             $searchValue = trim($col['search']['value']);
             if ((empty($searchValue) && $searchValue !== '0') || (! empty($searchValue) && $searchValue === $this->filtersConfig['date_delimiter'])) {
                 continue;
@@ -298,16 +300,14 @@ class Datatables
             $this->queryBuilder->where(function ($query) use ($field, $searchValue) {
                 // field exists on model
                 if (! isset($this->relations[$field])) {
-                    if (! $this->columnExists($field)) {
-                        return;
-                    }
-
-                    if (! empty($searchType = $this->columnSearchType($searchValue))) {
-                        $this->applyColumnSearch($searchType, $query, $this->modelTable, $field, $searchValue);
-                    } elseif (Schema::getColumnType($this->modelTable, $field) === 'json') {
-                        $query->where(DB::raw('LOWER(JSON_EXTRACT('.$this->modelTable.'.'.$field.', "$.*"))'), 'LIKE', '%'.strtolower($searchValue).'%');
-                    } else {
-                        $query->where($this->modelTable.'.'.$field, 'LIKE', '%'.$searchValue.'%');
+                    if ($this->columnExists($field)) {
+                        if (! empty($searchType = $this->columnSearchType($searchValue))) {
+                            $this->applyColumnSearch($searchType, $query, $this->modelTable, $field, $searchValue);
+                        } elseif (Schema::getColumnType($this->modelTable, $field) === 'json') {
+                            $query->where(DB::raw('LOWER(JSON_EXTRACT('.$this->modelTable.'.'.$field.', "$.*"))'), 'LIKE', '%'.strtolower($searchValue).'%');
+                        } else {
+                            $query->where($this->modelTable.'.'.$field, 'LIKE', '%'.$searchValue.'%');
+                        }
                     }
 
                     return;
