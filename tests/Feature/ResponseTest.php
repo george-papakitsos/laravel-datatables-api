@@ -31,7 +31,7 @@ class ResponseTest extends FeatureTestCase
         $request_without_paging['length'] = '-1';
         $response = $this->get('/'.$this->route_prefix.'/User?'.http_build_query($request_without_paging));
 
-        $response->assertStatus(200);
+        $response->assertSuccessful();
         $response->assertJsonCount($response->offsetGet('recordsTotal'), 'data');
     }
 
@@ -40,7 +40,7 @@ class ResponseTest extends FeatureTestCase
         $request_without_start = Arr::except($this->getRequestDataSample(), ['start']);
         $response = $this->get('/'.$this->route_prefix.'/User?'.http_build_query($request_without_start));
 
-        $response->assertStatus(200);
+        $response->assertSuccessful();
     }
 
     public function test_request_data_without_order()
@@ -48,7 +48,7 @@ class ResponseTest extends FeatureTestCase
         $request_without_order = Arr::except($this->getRequestDataSample(), ['order']);
         $response = $this->get('/'.$this->route_prefix.'/User?'.http_build_query($request_without_order));
 
-        $response->assertStatus(200);
+        $response->assertSuccessful();
     }
 
     public function test_request_data_with_empty_order()
@@ -56,7 +56,7 @@ class ResponseTest extends FeatureTestCase
         $request_with_empty_order = Arr::except($this->getRequestDataSample(), ['order.0']);
         $response = $this->get('/'.$this->route_prefix.'/User?'.http_build_query($request_with_empty_order));
 
-        $response->assertStatus(200);
+        $response->assertSuccessful();
     }
 
     public function test_request_data_without_order_dir()
@@ -64,7 +64,7 @@ class ResponseTest extends FeatureTestCase
         $request_without_order_dir = Arr::except($this->getRequestDataSample(), ['order.0.dir']);
         $response = $this->get('/'.$this->route_prefix.'/User?'.http_build_query($request_without_order_dir));
 
-        $response->assertStatus(200);
+        $response->assertSuccessful();
     }
 
     public function test_model_in_another_namespace()
@@ -73,7 +73,7 @@ class ResponseTest extends FeatureTestCase
         $query_string = http_build_query($request_data);
 
         $response = $this->get('/'.$this->route_prefix.'/'.urlencode('Locations\Country').'?'.$query_string);
-        $response->assertStatus(200);
+        $response->assertSuccessful();
         $response->assertJsonCount($request_data['length'], 'data');
     }
 
@@ -102,7 +102,7 @@ class ResponseTest extends FeatureTestCase
         $query_string = http_build_query($request_data);
 
         $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
-        $response->assertStatus(200);
+        $response->assertSuccessful();
         $response->assertJsonCount($request_data['length'], 'data');
     }
 
@@ -113,7 +113,7 @@ class ResponseTest extends FeatureTestCase
         $query_string = http_build_query($request_data);
 
         $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
-        $response->assertStatus(200);
+        $response->assertSuccessful();
         $response->assertJsonCount(1, 'data');
     }
 
@@ -124,7 +124,7 @@ class ResponseTest extends FeatureTestCase
         $query_string = http_build_query($request_data);
 
         $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
-        $response->assertStatus(200);
+        $response->assertSuccessful();
         $response->assertJsonCount(1, 'data');
     }
 
@@ -135,7 +135,7 @@ class ResponseTest extends FeatureTestCase
         $query_string = http_build_query($request_data);
 
         $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
-        $response->assertStatus(200);
+        $response->assertSuccessful();
         $response->assertJsonCount(1, 'data');
     }
 
@@ -146,7 +146,7 @@ class ResponseTest extends FeatureTestCase
         $query_string = http_build_query($request_data);
 
         $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
-        $response->assertStatus(200);
+        $response->assertSuccessful();
         $response->assertJsonCount(1, 'data');
     }
 
@@ -158,7 +158,7 @@ class ResponseTest extends FeatureTestCase
         $query_string = http_build_query($request_data);
 
         $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
-        $response->assertStatus(200);
+        $response->assertSuccessful();
         $response->assertJsonCount(2, 'data');
     }
 
@@ -169,8 +169,19 @@ class ResponseTest extends FeatureTestCase
         $query_string = http_build_query($request_data);
 
         $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
-        $response->assertStatus(200);
+        $response->assertSuccessful();
         $this->assertEquals($this->user->id, $response->getData(true)['data'][0]['id']);
+    }
+
+    public function test_sort_with_column_not_in_model_or_relation()
+    {
+        $request_data = $this->getRequestDataSample();
+        $request_data['columns'][1]['data'] = 'non_existing_column';
+        $request_data['order'][0]['column'] = 1;
+        $query_string = http_build_query($request_data);
+
+        $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
+        $response->assertSuccessful();
     }
 
     public function test_sort_by_belongs_to_column()
@@ -181,7 +192,7 @@ class ResponseTest extends FeatureTestCase
         $query_string = http_build_query($request_data);
 
         $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
-        $response->assertStatus(200);
+        $response->assertSuccessful();
         $this->assertEquals($this->user->id, $response->getData(true)['data'][0]['id']);
     }
 
@@ -193,7 +204,7 @@ class ResponseTest extends FeatureTestCase
         $query_string = http_build_query($request_data);
 
         $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
-        $response->assertStatus(200);
+        $response->assertSuccessful();
         $this->assertEquals($this->user->id, $response->getData(true)['data'][0]['id']);
     }
 
@@ -205,7 +216,7 @@ class ResponseTest extends FeatureTestCase
         $query_string = http_build_query($request_data);
 
         $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
-        $response->assertStatus(200);
+        $response->assertSuccessful();
         $this->assertEquals(Models\User::orderBy('name')->orderBy('email')->first()->id, $response->getData(true)['data'][0]['id']);
     }
 
@@ -216,8 +227,39 @@ class ResponseTest extends FeatureTestCase
         $query_string = http_build_query($request_data);
 
         $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
-        $response->assertStatus(200);
+        $response->assertSuccessful();
         $response->assertJsonCount(1, 'data');
+    }
+
+    public function test_search_without_search_or_search_value_request_key()
+    {
+        foreach ([['search'], ['search.value']] as $requestKey) {
+            $request_without_key = Arr::except($this->getRequestDataSample(), $requestKey);
+            $response = $this->get('/'.$this->route_prefix.'/User?'.http_build_query($request_without_key));
+
+            $response->assertSuccessful();
+        }
+    }
+
+    public function test_search_by_column_without_required_search_request_keys()
+    {
+        foreach (['data', 'search', 'search.value'] as $requestKey) {
+            $request_without_key = Arr::except($this->getRequestDataSample(), ['columns.1.'.$requestKey]);
+            $response = $this->get('/'.$this->route_prefix.'/User?'.http_build_query($request_without_key));
+
+            $response->assertSuccessful();
+        }
+    }
+
+    public function test_search_by_column_not_in_model_or_relation()
+    {
+        $request_data = $this->getRequestDataSample();
+        $request_data['columns'][1]['data'] = 'non_existing_column';
+        $request_data['columns'][1]['search']['value'] = $this->user->name;
+        $query_string = http_build_query($request_data);
+
+        $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
+        $response->assertSuccessful();
     }
 
     public function test_search_by_column()
@@ -228,7 +270,7 @@ class ResponseTest extends FeatureTestCase
             $query_string = http_build_query($request_data);
 
             $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
-            $response->assertStatus(200);
+            $response->assertSuccessful();
             $response->assertJsonCount(1, 'data');
         }
     }
@@ -245,7 +287,7 @@ class ResponseTest extends FeatureTestCase
             $query_string = http_build_query($request_data);
 
             $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
-            $response->assertStatus(200);
+            $response->assertSuccessful();
             if ($searchTermKey !== $searchTermsLastKey) {
                 $response->assertJsonCount(1, 'data');
             } else {
@@ -262,7 +304,7 @@ class ResponseTest extends FeatureTestCase
         $query_string = http_build_query($request_data);
 
         $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
-        $response->assertStatus(200);
+        $response->assertSuccessful();
         $response->assertJsonCount(1, 'data');
     }
 
@@ -273,7 +315,7 @@ class ResponseTest extends FeatureTestCase
         $query_string = http_build_query($request_data);
 
         $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
-        $response->assertStatus(200);
+        $response->assertSuccessful();
         $this->assertEquals($this->user->id, $response->getData(true)['data'][0]['id']);
     }
 
@@ -284,7 +326,7 @@ class ResponseTest extends FeatureTestCase
         $query_string = http_build_query($request_data);
 
         $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
-        $response->assertStatus(200);
+        $response->assertSuccessful();
         $this->assertEquals($this->user->id, $response->getData(true)['data'][0]['id']);
     }
 
@@ -295,7 +337,7 @@ class ResponseTest extends FeatureTestCase
             $request_data['columns'][5]['search']['value'] = $searchValue;
             $response = $this->get('/'.$this->route_prefix.'/User?'.http_build_query($request_data));
 
-            $response->assertStatus(200);
+            $response->assertSuccessful();
             $response->assertJsonCount(1, 'data');
             $this->assertEquals($this->user->id, $response->getData(true)['data'][0]['id']);
         }
@@ -309,7 +351,7 @@ class ResponseTest extends FeatureTestCase
             $query_string = http_build_query($request_data);
 
             $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
-            $response->assertStatus(200);
+            $response->assertSuccessful();
             $this->assertEquals($this->user->id, $response->getData(true)['data'][0]['id']);
         }
     }
@@ -327,7 +369,7 @@ class ResponseTest extends FeatureTestCase
             $query_string = http_build_query($request_data);
 
             $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
-            $response->assertStatus(200);
+            $response->assertSuccessful();
             if ($searchTermKey !== $searchTermsLastKey) {
                 $this->assertEquals($this->user->id, $response->getData(true)['data'][0]['id']);
             } else {
@@ -344,7 +386,7 @@ class ResponseTest extends FeatureTestCase
         $query_string = http_build_query($request_data);
 
         $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
-        $response->assertStatus(200);
+        $response->assertSuccessful();
         $this->assertEquals(Models\User::whereNull('settings')->count(), $response->getData(true)['recordsFiltered']);
     }
 
@@ -355,7 +397,7 @@ class ResponseTest extends FeatureTestCase
         $query_string = http_build_query($request_data);
 
         $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
-        $response->assertStatus(200);
+        $response->assertSuccessful();
         $this->assertEquals(Models\User::whereNull('country_id')->count(), $response->getData(true)['recordsFiltered']);
     }
 
@@ -367,7 +409,7 @@ class ResponseTest extends FeatureTestCase
             $query_string = http_build_query($request_data);
 
             $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
-            $response->assertStatus(200);
+            $response->assertSuccessful();
             $this->assertEquals($this->user->id, $response->getData(true)['data'][0]['id']);
         }
     }
@@ -382,7 +424,7 @@ class ResponseTest extends FeatureTestCase
             $query_string = http_build_query($request_data);
 
             $response = $this->get('/'.$this->route_prefix.'/'.urlencode('Locations\Country').'?'.$query_string);
-            $response->assertStatus(200);
+            $response->assertSuccessful();
             $this->assertEquals($this->country->id, $response->getData(true)['data'][0]['id']);
         }
     }
