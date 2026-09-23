@@ -5,6 +5,7 @@ This package handles server-side implementation of jQuery DataTables Plugin by u
 - [PHP >= 8.1](https://www.php.net/)
 - [Laravel >= 10.0](https://laravel.com/)
 - [jQuery DataTables >= 1.10](https://datatables.net/)
+- Database: MySQL / MariaDB, PostgreSQL or SQLite (searches are case-insensitive and NULLs sort first in ascending order on all of them)
 
 ## Installation
 Require the package with composer.
@@ -27,4 +28,14 @@ GPapakitsos\LaravelDatatables\DatatablesServiceProvider::class,
 #### Copy the package config file to your local config folder with the publish command:
 ```shell
 php artisan vendor:publish --provider="GPapakitsos\LaravelDatatables\DatatablesServiceProvider"
+```
+
+## Testing
+The test suite runs on SQLite by default:
+```shell
+vendor/bin/phpunit
+```
+To run it against PostgreSQL (or MySQL) point the standard Laravel `DB_*` variables at a database:
+```shell
+DB_CONNECTION=pgsql DB_HOST=127.0.0.1 DB_PORT=5432 DB_DATABASE=testing DB_USERNAME=test DB_PASSWORD=test vendor/bin/phpunit
 ```

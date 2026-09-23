@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
@@ -35,6 +36,11 @@ class User extends Model
     public function countryContinent(): BelongsTo
     {
         return $this->country();
+    }
+
+    public function visitedCountries(): BelongsToMany
+    {
+        return $this->belongsToMany(Locations\Country::class, 'country_user');
     }
 
     public function userLogins(): HasMany
@@ -98,6 +104,7 @@ class User extends Model
             'latestUserLogins' => $this->latestUserLogins?->when,
             'countryContinent' => $this->country->continent->name ?? null,
             'taggable' => $this->taggable->name ?? null,
+            'visitedCountries' => $this->visitedCountries->pluck('name')->implode(', '),
         ];
     }
 
@@ -118,6 +125,7 @@ class User extends Model
                 ['models' => [Locations\Country::class], 'fields' => ['name']],
                 ['models' => [Locations\Continent::class], 'fields' => ['name', 'abbreviation']],
             ],
+            'visitedCountries' => ['name'],
         ];
     }
 }

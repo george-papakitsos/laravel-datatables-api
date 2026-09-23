@@ -166,7 +166,7 @@ class Datatables
             $this->queryBuilder->when(
                 is_array($value),
                 fn (Builder $query) => $query->whereIn($field, $value),
-                fn (Builder $query) => $query->where($field, (Str::startsWith($value, '%') || Str::endsWith($value, '%') ? 'LIKE' : '='), $value)
+                fn (Builder $query) => $query->where($field, (Str::startsWith($value, '%') || Str::endsWith($value, '%') ? $this->likeOperator() : '='), $value)
             );
         }
     }
@@ -190,7 +190,7 @@ class Datatables
             return;
         }
 
-        $direction = $this->options['order'][0]['dir'] ?? 'asc';
+        $direction = strtolower($this->options['order'][0]['dir'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
 
         // field exists on model
         if (! isset($this->relations[$field])) {
@@ -198,7 +198,7 @@ class Datatables
                 return;
             }
 
-            $this->queryBuilder->orderBy($field, $direction);
+            $this->orderBy($field, $direction);
 
             return;
         }
@@ -217,14 +217,14 @@ class Datatables
                     if ($this->isDateFieldWithPrefix($otherField)) {
                         $otherField = Str::afterLast($otherField, $this->filtersConfig['date_field_prefix']['delimiter']);
                     }
-                    $this->queryBuilder->orderBy($otherTable.'.'.$otherField, $direction);
+                    $this->orderBy($otherTable.'.'.$otherField, $direction);
                 } else {
                     $relationThrough = $relation->getRelated()->{$otherField[0]}();
                     $relationThroughOtherTable = $relationThrough->getRelated()->getTable();
 
                     $this->queryBuilder
-                        ->leftJoin($relationThroughOtherTable, $relationThrough->getQualifiedForeignKeyName(), '=', $relationThrough->getQualifiedOwnerKeyName())
-                        ->orderBy($relationThroughOtherTable.'.'.$otherField[1], $direction);
+                        ->leftJoin($relationThroughOtherTable, $relationThrough->getQualifiedForeignKeyName(), '=', $relationThrough->getQualifiedOwnerKeyName());
+                    $this->orderBy($relationThroughOtherTable.'.'.$otherField[1], $direction);
                 }
             }
 
@@ -232,14 +232,8 @@ class Datatables
         }
 
         if ($relation instanceof BelongsToMany) {
-            $this->queryBuilder
-                ->leftJoin($relation->getTable(), $relation->getQualifiedForeignPivotKeyName(), '=', $relation->getQualifiedParentKeyName())
-                ->leftJoin($otherTable, $relation->getQualifiedRelatedPivotKeyName(), '=', $otherTable.'.'.$relation->getRelated()->getKeyName())
-                ->select($this->modelTable.'.*')
-                ->distinct();
-
             foreach ($this->relations[$field] as $otherField) {
-                $this->queryBuilder->orderBy($otherTable.'.'.$otherField, $direction);
+                $this->orderByExpression($this->relatedValueSubquery($relation, $otherTable, $otherField), $direction);
             }
 
             return;
@@ -247,14 +241,14 @@ class Datatables
 
         if ($relation instanceof HasMany) {
             $this->queryBuilder
-                ->orderBy(DB::raw('(SELECT COUNT(*) FROM `'.$otherTable.'` WHERE '.$relation->getQualifiedForeignKeyName().' = '.$relation->getQualifiedParentKeyName().')'), $direction);
+                ->orderBy(DB::raw('(SELECT COUNT(*) FROM '.$this->wrapTable($otherTable).' WHERE '.$this->wrap($relation->getQualifiedForeignKeyName()).' = '.$this->wrap($relation->getQualifiedParentKeyName()).')'), $direction);
 
             return;
         }
 
         if ($relation instanceof HasOne) {
             foreach ($this->relations[$field] as $otherField) {
-                $this->queryBuilder->orderBy($otherTable.'.'.$otherField, $direction);
+                $this->orderBy($otherTable.'.'.$otherField, $direction);
             }
         }
     }
@@ -304,10 +298,10 @@ class Datatables
 
                     if (! empty($searchType = $this->columnSearchType($searchValue))) {
                         $this->applyColumnSearch($searchType, $query, $this->modelTable, $field, $searchValue);
-                    } elseif (Schema::getColumnType($this->modelTable, $field) === 'json') {
-                        $query->where(DB::raw('LOWER(JSON_EXTRACT('.$this->modelTable.'.'.$field.', "$.*"))'), 'LIKE', '%'.strtolower($searchValue).'%');
+                    } elseif (in_array(Schema::getColumnType($this->modelTable, $field), ['json', 'jsonb'], true)) {
+                        $query->where(DB::raw($this->jsonTextExpression($this->modelTable.'.'.$field)), $this->likeOperator(), '%'.strtolower($searchValue).'%');
                     } else {
-                        $query->where($this->modelTable.'.'.$field, 'LIKE', '%'.$searchValue.'%');
+                        $query->where($this->modelTable.'.'.$field, $this->likeOperator(), '%'.$searchValue.'%');
                     }
 
                     return;
@@ -324,7 +318,7 @@ class Datatables
                             foreach ($this->relations[$field] as $otherField) {
                                 $query->orWhereHasMorph($field, $otherField['models'], function ($query) use ($otherField, $terms) {
                                     foreach ($terms as $term) {
-                                        $query->whereAny($otherField['fields'], 'LIKE', '%'.$term.'%');
+                                        $query->whereAny($otherField['fields'], $this->likeOperator(), '%'.$term.'%');
                                     }
                                 });
                             }
@@ -356,48 +350,40 @@ class Datatables
                                         continue;
                                     }
 
-                                    $dateFormat = strtr($date_field_prefix_array[1], [
-                                        'd' => '%d', 'j' => '%e', 'm' => '%m', 'Y' => '%Y', 'y' => '%y',
-                                    ]);
-                                    if (empty($dateFormat)) {
+                                    if (empty($dateExpr = $this->dateFormatExpression($otherTable.'.'.$date_field_prefix_array[2], $date_field_prefix_array[1]))) {
                                         continue;
                                     }
-
-                                    $otherField = $date_field_prefix_array[2];
-                                    $dateExpr = $this->driver === 'sqlite'
-                                        ? "strftime('".$dateFormat."', `$otherTable`.`$otherField`)"
-                                        : 'DATE_FORMAT(`'.$otherTable.'`.`'.$otherField.'`, "'.$dateFormat.'")';
-                                    $query->orWhere(DB::raw($dateExpr), 'LIKE', '%'.$searchValue.'%');
+                                    $query->orWhere(DB::raw($dateExpr), $this->likeOperator(), '%'.$searchValue.'%');
 
                                     continue;
                                 }
 
                                 if ($this->isColumnSearchWithMultipleTerms($this->relations[$field], $terms)) {
                                     foreach ($terms as $term) {
-                                        $query->whereAny($this->relations[$field], 'LIKE', '%'.$term.'%');
+                                        $query->whereAny($this->relations[$field], $this->likeOperator(), '%'.$term.'%');
                                     }
 
                                     return;
                                 }
 
-                                $query->orWhere($otherTable.'.'.$otherField, 'LIKE', '%'.$searchValue.'%');
+                                $query->orWhere($otherTable.'.'.$otherField, $this->likeOperator(), '%'.$searchValue.'%');
 
                                 continue;
                             }
 
                             $query->whereHas($otherField[0], function ($query) use ($otherField, $searchValue, $terms) {
-                                $query->when(is_string($otherField[1]), fn ($query) => $query->where($otherField[1], 'LIKE', '%'.$searchValue.'%'));
+                                $query->when(is_string($otherField[1]), fn ($query) => $query->where($otherField[1], $this->likeOperator(), '%'.$searchValue.'%'));
 
                                 if (is_array($otherField[1])) {
                                     if ($this->isColumnSearchWithMultipleTerms($otherField[1], $terms)) {
                                         foreach ($terms as $term) {
-                                            $query->whereAny($otherField[1], 'LIKE', '%'.$term.'%');
+                                            $query->whereAny($otherField[1], $this->likeOperator(), '%'.$term.'%');
                                         }
 
                                         return;
                                     }
 
-                                    $query->whereAny($otherField[1], 'LIKE', '%'.$searchValue.'%');
+                                    $query->whereAny($otherField[1], $this->likeOperator(), '%'.$searchValue.'%');
                                 }
                             });
                         }
@@ -435,13 +421,15 @@ class Datatables
         if ($searchType === 'date' && count($dates = explode($this->filtersConfig['date_delimiter'], $searchValue)) > 0) {
             foreach ([['date' => $dates[0] ?? null, 'operator' => '>='], ['date' => $dates[1] ?? null, 'operator' => '<=']] as $whereData) {
                 if (! empty($whereData['date'])) {
-                    $query->where(DB::raw('DATE(`'.$table.'`.`'.$field.'`)'), $whereData['operator'], Carbon::createFromFormat($this->filtersConfig['date_format'], $whereData['date'])->toDateString());
+                    $query->where(DB::raw('DATE('.$this->wrap($table.'.'.$field).')'), $whereData['operator'], Carbon::createFromFormat($this->filtersConfig['date_format'], $whereData['date'])->toDateString());
                 }
             }
         }
 
         if ($searchType === 'empty') {
-            $query->where(fn ($query) => $query->where($table.'.'.$field, '')->orWhereNull($table.'.'.$field));
+            // PostgreSQL has no equality operator for json and rejects '' for non-text columns: compare as text
+            $column = $this->driver === 'pgsql' ? DB::raw('CAST('.$this->wrap($table.'.'.$field).' AS TEXT)') : $table.'.'.$field;
+            $query->where(fn ($query) => $query->where($column, '')->orWhereNull($table.'.'.$field));
         }
 
         if ($searchType === 'exact') {
@@ -449,6 +437,106 @@ class Datatables
         }
 
         return $this;
+    }
+
+    /**
+     * ORDER BY a (possibly NULL) column with the same NULL placement on every driver:
+     * MySQL/MariaDB and SQLite sort NULL as the smallest value, PostgreSQL as the largest
+     */
+    private function orderBy(string $column, string $direction): void
+    {
+        if ($this->driver === 'pgsql') {
+            $this->orderByExpression($this->wrap($column), $direction);
+
+            return;
+        }
+
+        $this->queryBuilder->orderBy($column, $direction);
+    }
+
+    /**
+     * ORDER BY a raw expression, keeping NULL where the other drivers put it
+     */
+    private function orderByExpression(string $expression, string $direction): void
+    {
+        $nulls = '';
+        if ($this->driver === 'pgsql') {
+            $nulls = $direction === 'desc' ? ' NULLS LAST' : ' NULLS FIRST';
+        }
+
+        $this->queryBuilder->orderByRaw($expression.' '.$direction.$nulls);
+    }
+
+    /**
+     * Correlated subquery returning the lowest related value of a BelongsToMany relation.
+     * Ordering by it needs no join, so the rows stay one per parent without DISTINCT, and
+     * every driver orders a multi-valued relation the same way.
+     */
+    private function relatedValueSubquery(BelongsToMany $relation, string $otherTable, string $otherField): string
+    {
+        return '(SELECT MIN('.$this->wrap($otherTable.'.'.$otherField).')'
+            .' FROM '.$this->wrapTable($otherTable)
+            .' INNER JOIN '.$this->wrapTable($relation->getTable())
+            .' ON '.$this->wrap($relation->getQualifiedRelatedPivotKeyName()).' = '.$this->wrap($otherTable.'.'.$relation->getRelated()->getKeyName())
+            .' WHERE '.$this->wrap($relation->getQualifiedForeignPivotKeyName()).' = '.$this->wrap($relation->getQualifiedParentKeyName()).')';
+    }
+
+    /**
+     * The case-insensitive LIKE operator of the current driver
+     * (PostgreSQL's LIKE is case-sensitive; MySQL/MariaDB and SQLite are not by default)
+     */
+    private function likeOperator(): string
+    {
+        return $this->driver === 'pgsql' ? 'ILIKE' : 'LIKE';
+    }
+
+    /**
+     * Quotes a (qualified) column name with the identifier quotes of the current driver
+     */
+    private function wrap(string $value): string
+    {
+        return $this->queryBuilder->getQuery()->getGrammar()->wrap($value);
+    }
+
+    /**
+     * Quotes a table name with the identifier quotes of the current driver
+     */
+    private function wrapTable(string $table): string
+    {
+        return $this->queryBuilder->getQuery()->getGrammar()->wrapTable($table);
+    }
+
+    /**
+     * SQL expression returning the lower-cased text of a JSON column, for searching in its values
+     */
+    private function jsonTextExpression(string $column): string
+    {
+        return match ($this->driver) {
+            'pgsql' => 'LOWER(CAST('.$this->wrap($column).' AS TEXT))',
+            default => 'LOWER(JSON_EXTRACT('.$this->wrap($column).', \'$.*\'))',
+        };
+    }
+
+    /**
+     * SQL expression formatting a date column with the given PHP date format (d, j, m, Y, y),
+     * or null when the format is empty
+     */
+    private function dateFormatExpression(string $column, string $phpFormat): ?string
+    {
+        if (empty($phpFormat)) {
+            return null;
+        }
+
+        $format = strtr($phpFormat, match ($this->driver) {
+            'pgsql' => ['d' => 'DD', 'j' => 'FMDD', 'm' => 'MM', 'Y' => 'YYYY', 'y' => 'YY'],
+            default => ['d' => '%d', 'j' => '%e', 'm' => '%m', 'Y' => '%Y', 'y' => '%y'],
+        });
+
+        return match ($this->driver) {
+            'pgsql' => 'TO_CHAR('.$this->wrap($column).', \''.$format.'\')',
+            'sqlite' => 'strftime(\''.$format.'\', '.$this->wrap($column).')',
+            default => 'DATE_FORMAT('.$this->wrap($column).', \''.$format.'\')',
+        };
     }
 
     /**

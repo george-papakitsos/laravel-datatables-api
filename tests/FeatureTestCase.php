@@ -38,6 +38,12 @@ class FeatureTestCase extends TestCase
             'taggable_id' => $this->continent->id,
         ]);
         $this->userLogin = Models\UserLogin::factory()->whenField(Carbon::now()->addMonth()->toDateTimeString())->for($this->user)->create();
+
+        // a multi-valued relation to sort by: this user's countries sort after everyone else's
+        $this->user->visitedCountries()->attach([
+            Models\Locations\Country::factory()->create(['name' => 'Zz Last Country'])->id,
+            Models\Locations\Country::factory()->create(['name' => 'Aa First Country'])->id,
+        ]);
     }
 
     protected function getPackageProviders($app)
@@ -134,6 +140,12 @@ class FeatureTestCase extends TestCase
                     ],
                     [
                         'data' => 'taggable',
+                        'search' => [
+                            'value' => '',
+                        ],
+                    ],
+                    [
+                        'data' => 'visitedCountries',
                         'search' => [
                             'value' => '',
                         ],
