@@ -209,6 +209,22 @@ class ResponseTest extends FeatureTestCase
         $this->assertEquals(Models\User::orderBy('name')->orderBy('email')->first()->id, $response->getData(true)['data'][0]['id']);
     }
 
+    public function test_sort_by_belongs_to_many_column()
+    {
+        $request_data = $this->getRequestDataSample();
+        $request_data['order'][0]['column'] = 12;
+        $request_data['order'][0]['dir'] = 'desc';
+        $query_string = http_build_query($request_data);
+
+        $response = $this->get('/'.$this->route_prefix.'/User?'.$query_string);
+        $response->assertStatus(200);
+
+        // the relation holds two countries for this user; every driver must order by the same one
+        $this->assertEquals($this->user->id, $response->getData(true)['data'][0]['id']);
+        // ordering by a multi-valued relation must not duplicate rows
+        $this->assertEquals(Models\User::count(), $response->getData(true)['recordsTotal']);
+    }
+
     public function test_search()
     {
         $request_data = $this->getRequestDataSample();

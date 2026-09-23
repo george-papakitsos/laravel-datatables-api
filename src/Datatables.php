@@ -232,14 +232,8 @@ class Datatables
         }
 
         if ($relation instanceof BelongsToMany) {
-            $this->queryBuilder
-                ->leftJoin($relation->getTable(), $relation->getQualifiedForeignPivotKeyName(), '=', $relation->getQualifiedParentKeyName())
-                ->leftJoin($otherTable, $relation->getQualifiedRelatedPivotKeyName(), '=', $otherTable.'.'.$relation->getRelated()->getKeyName())
-                ->select($this->modelTable.'.*')
-                ->distinct();
-
             foreach ($this->relations[$field] as $otherField) {
-                $this->orderBy($otherTable.'.'.$otherField, $direction);
+                $this->orderByExpression($this->relatedValueSubquery($relation, $otherTable, $otherField), $direction);
             }
 
             return;
@@ -452,12 +446,39 @@ class Datatables
     private function orderBy(string $column, string $direction): void
     {
         if ($this->driver === 'pgsql') {
-            $this->queryBuilder->orderByRaw($this->wrap($column).' '.$direction.($direction === 'desc' ? ' NULLS LAST' : ' NULLS FIRST'));
+            $this->orderByExpression($this->wrap($column), $direction);
 
             return;
         }
 
         $this->queryBuilder->orderBy($column, $direction);
+    }
+
+    /**
+     * ORDER BY a raw expression, keeping NULL where the other drivers put it
+     */
+    private function orderByExpression(string $expression, string $direction): void
+    {
+        $nulls = '';
+        if ($this->driver === 'pgsql') {
+            $nulls = $direction === 'desc' ? ' NULLS LAST' : ' NULLS FIRST';
+        }
+
+        $this->queryBuilder->orderByRaw($expression.' '.$direction.$nulls);
+    }
+
+    /**
+     * Correlated subquery returning the lowest related value of a BelongsToMany relation.
+     * Ordering by it needs no join, so the rows stay one per parent without DISTINCT, and
+     * every driver orders a multi-valued relation the same way.
+     */
+    private function relatedValueSubquery(BelongsToMany $relation, string $otherTable, string $otherField): string
+    {
+        return '(SELECT MIN('.$this->wrap($otherTable.'.'.$otherField).')'
+            .' FROM '.$this->wrapTable($otherTable)
+            .' INNER JOIN '.$this->wrapTable($relation->getTable())
+            .' ON '.$this->wrap($relation->getQualifiedRelatedPivotKeyName()).' = '.$this->wrap($otherTable.'.'.$relation->getRelated()->getKeyName())
+            .' WHERE '.$this->wrap($relation->getQualifiedForeignPivotKeyName()).' = '.$this->wrap($relation->getQualifiedParentKeyName()).')';
     }
 
     /**
