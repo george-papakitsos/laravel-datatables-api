@@ -47,6 +47,11 @@ class Datatables
     protected string $modelTable;
 
     /**
+     * The model's table columns
+     */
+    protected array $modelColumns;
+
+    /**
      * The query builder instance
      */
     protected Builder $queryBuilder;
@@ -172,13 +177,31 @@ class Datatables
     }
 
     /**
-     * Checks if a column exists in the given table
+     * Sets the modelColumns property if it is not already set
      */
-    private function columnExists(string $column, ?string $table = null): bool
+    private function setPropertyModelColumns(): void
     {
-        $table ??= $this->modelTable;
+        $this->modelColumns ??= Arr::pluck(Schema::getColumns($this->modelTable), 'type_name', 'name');
+    }
 
-        return Schema::hasTable($table) && Schema::hasColumn($table, $column);
+    /**
+     * Checks if a column exists in the model's table
+     */
+    private function columnExists(string $column): bool
+    {
+        $this->setPropertyModelColumns();
+
+        return array_key_exists($column, $this->modelColumns);
+    }
+
+    /**
+     * Gets the type of a column of the model's table
+     */
+    private function getColumnType(string $column): ?string
+    {
+        $this->setPropertyModelColumns();
+
+        return $this->modelColumns[$column] ?? null;
     }
 
     /**
@@ -303,7 +326,7 @@ class Datatables
                     if ($this->columnExists($field)) {
                         if (! empty($searchType = $this->columnSearchType($searchValue))) {
                             $this->applyColumnSearch($searchType, $query, $this->modelTable, $field, $searchValue);
-                        } elseif (Schema::getColumnType($this->modelTable, $field) === 'json') {
+                        } elseif ($this->getColumnType($field) === 'json') {
                             $query->where(DB::raw('LOWER(JSON_EXTRACT('.$this->modelTable.'.'.$field.', "$.*"))'), 'LIKE', '%'.strtolower($searchValue).'%');
                         } else {
                             $query->where($this->modelTable.'.'.$field, 'LIKE', '%'.$searchValue.'%');
